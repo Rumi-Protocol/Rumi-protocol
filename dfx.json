@@ -1,0 +1,27 @@
+{
+  "canisters": {
+    "rumi_protocol_backend": {
+      "candid": "src/rumi_protocol_backend/rumi_protocol_backend.did",
+      "package": "rumi_protocol_backend",
+      "type": "rust"
+    },
+    "rumi_protocol_frontend": {
+      "dependencies": [
+        "rumi_protocol_backend"
+      ],
+      "source": [
+        "src/rumi_protocol_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "rumi_protocol_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}

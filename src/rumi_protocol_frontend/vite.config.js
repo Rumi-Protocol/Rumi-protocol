@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'url';
+import { sveltekit } from "@sveltejs/kit/vite";
 import environment from 'vite-plugin-environment';
 import dotenv from 'dotenv';
 
@@ -24,10 +25,11 @@ export default defineConfig({
       },
     },
   },
-  publicDir: "assets",
+  publicDir: "static",
   plugins: [
     environment("all", { prefix: "CANISTER_" }),
     environment("all", { prefix: "DFX_" }),
+    sveltekit()
   ],
   resolve: {
     alias: [

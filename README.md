@@ -2,29 +2,42 @@
 # icUSD Stablecoin Project
 
 ## Introduction
-icUSD is a decentralized stablecoin built on the Internet Computer Protocol (ICP), aimed at providing a stable digital currency pegged to the US dollar. It utilizes collateral in the form of ICP, ckBTC, and ckETH to maintain its stability and value. This repository contains all the necessary components for deploying, managing, and interacting with the icUSD system.
+icUSD is a decentralized stablecoin developed on the Internet Computer Protocol (ICP), designed to provide a stable digital currency pegged to the US dollar. This repository contains the Rust-based backend canisters and a Svelte-powered frontend for interacting with the icUSD system.
 
 ## Features
-- **Decentralized Stablecoin**: Mint icUSD by locking ICP tokens as collateral in an over-collateralized system.
-- **Robust Liquidation Mechanism**: Automatically liquidates undercollateralized positions to ensure system solvency.
-- **Integrated Price Oracle**: Leverages HTTPS outcalls for real-time ICP price data, ensuring accurate collateral valuation.
-- **Dynamic Collateral Management**: Adjusts collateral requirements based on market conditions to maintain stability.
-- **Governance Model**: icUSD holders can participate in governance decisions, influencing key protocol parameters.
+- **Decentralized Stability**: icUSD maintains its peg through a collateralized mechanism, ensuring stable value against the US dollar.
+- **Robust Liquidation Mechanism**: Automates the process of liquidating undercollateralized positions to maintain system health.
+- **Real-time Price Oracles**: Implements oracles for accurate and timely price updates essential for system operations.
+- **Dynamic Collateral Management**: Adapts to market conditions by adjusting collateral requirements.
+- **Governance and Community Driven**: Empowers icUSD holders to participate in governance decisions impacting the protocol.
 
 ## Project Structure
-- `src`: Smart contracts written in Motoko, powering the icUSD protocol.
-- `frontend`: User interface developed with Svelte to interact with the icUSD system.
-- `scripts`: Utility scripts for deployment and management of the canisters.
+- `src/rumi_protocol_backend`: Contains the Rust smart contracts handling the core logic of icUSD.
+- `src/rumi_vault`: Manages the icUSD vault operations.
+- `src/ledger`: Includes the canisters for handling ledger operations specific to icUSD and ICP interactions.
+- `src/rumi_protocol_frontend`: Svelte application providing a user interface for interacting with icUSD.
 
 ## Getting Started
 ### Prerequisites
-- Node.js and npm installed.
-- Internet Computer SDK (`dfx`) installed for managing canisters.
+- Node.js (for frontend development and build)
+- Rust and Cargo (for compiling backend canisters)
+- DFX SDK (for deploying and managing Internet Computer canisters)
 
 ### Installation
 Clone the repository and install dependencies:
 ```bash
 git clone https://github.com/your-org/icUSD.git
 cd icUSD
-npm install
+npm install # for the frontend
+cargo build --release # for the backend canisters
+
+
+## Running Locally
+To start the local development environment, execute the following commands:
+
+```bash
+dfx start --clean
+dfx deploy
+cd src/rumi_protocol_frontend
+npm run dev
 

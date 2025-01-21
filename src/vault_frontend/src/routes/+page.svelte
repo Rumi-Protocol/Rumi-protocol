@@ -6,9 +6,9 @@
 <section class="flex flex-col items-center justify-center  p-10">
 
 <div class="flex justify-center items-center space-x-4 pb-10">
-  <img src="/coin3.png" alt="Coin 3" class="w-40 h-36 md:w-48 md:h-48 bounce-normal" />
-  <img src="/coin3.png" alt="Coin 1" class="w-40 h-36 md:w-48 md:h-48 bounce-higher" />
-  <img src="/coin3.png" alt="Coin 3" class="w-40 h-36 md:w-48 md:h-48 bounce-normal" />
+  <img src="/icUSD-logo.png" alt="Coin 3" class="w-40 h-36 md:w-48 md:h-48 bounce-normal" />
+  <img src="/icUSD-logo.png" alt="Coin 1" class="w-40 h-36 md:w-48 md:h-48 bounce-higher" />
+  <img src="/icUSD-logo.png" alt="Coin 3" class="w-40 h-36 md:w-48 md:h-48 bounce-normal" />
 </div>
 
   <h1 class="text-5xl font-bold text-center text-white gradient-outline">icUSD - The Future of Stablecoin on ICP</h1>

@@ -7,11 +7,11 @@
 @layer base {
   :root {
     /*
-    --gradient-start: #603d9c;
-    --gradient-end: #c643c6;
+   --gradient-start: #1b1c22;
+    --gradient-end: #1d335a;
     */
-    --gradient-start: #704dab;
-    --gradient-end: #d35cd3;
+    --gradient-end: #1b1c22;
+    --gradient-start: #1a2f53;
 
   }
   

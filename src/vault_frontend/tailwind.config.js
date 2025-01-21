@@ -1,7 +1,6 @@
 import containerQueries from '@tailwindcss/container-queries';
 import forms from '@tailwindcss/forms';
 import typography from '@tailwindcss/typography';
-import type { Config } from 'tailwindcss';
 import plugin from 'tailwindcss/plugin';
 
 export default {
@@ -11,6 +10,13 @@ export default {
 	],
   theme: {
     extend: {
+      screens: {
+        xs: "400px", 
+        sm: "640px",
+        md: "768px",
+        lg: "1024px",
+        xl: "1280px",
+      },
       colors: {
         primary: '#00b4d8',
         // Custom gradient colors
@@ -69,4 +75,4 @@ export default {
 		})
 	  }),
 	],
-} satisfies Config;
+ };

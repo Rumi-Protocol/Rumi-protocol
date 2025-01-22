@@ -1,7 +1,6 @@
-# `rumi_protocol`
-# icUSD Stablecoin Project
+# icUSD Stablecoin on ICP
 
-# icUSD Protocol: A Next-Generation Decentralized Stablecoin System
+# Rumi Protocol: A Next-Generation Decentralized Stablecoin System
 ## Section I: Introduction & Background
 ### Abstract
 The cryptocurrency market has a fundamental problem: high volatility makes most digital assets

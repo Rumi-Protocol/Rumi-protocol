@@ -3,17 +3,8 @@
     "rumi_protocol_backend": {
       "candid": "src/rumi_protocol_backend/rumi_protocol_backend.did",
       "package": "rumi_protocol_backend",
-      "type": "custom",
-      "wasm": "target/wasm32-unknown-unknown/release/rumi_protocol_backend.wasm",
-      "build": [
-        "cargo build --target wasm32-unknown-unknown --release -p rumi_protocol_backend",
-        "candid-extractor target/wasm32-unknown-unknown/release/rumi_protocol_backend.wasm > src/rumi_protocol_backend/rumi_protocol_backend.did"
-      ],
-      "metadata": [
-        {
-          "name": "candid:service"
-        }
-      ]
+      "type": "rust",
+      "shrink": false
     },
     "rumi_protocol_frontend": {
       "dependencies": [
@@ -44,6 +35,7 @@
     },
     "vault_frontend": {
       "dependencies": [
+        "rumi_protocol_backend"
       ],
       "source": [
         "src/vault_frontend/dist"

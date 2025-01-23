@@ -1,0 +1,14 @@
+{
+  "rumi_protocol_backend": {
+    "ic": "aakb7-rqaaa-aaaai-q3oua-cai"
+  },
+  "rumi_protocol_frontend": {
+    "ic": "ahlhl-4iaaa-aaaai-q3ouq-cai"
+  },
+  "rumi_vault": {
+    "ic": "vskjr-6yaaa-aaaai-q3sca-cai"
+  },
+  "vault_frontend": {
+    "ic": "stm54-gyaaa-aaaai-q3ssa-cai"
+  }
+}

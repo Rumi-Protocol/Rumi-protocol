@@ -1,3 +1,144 @@
-service : {
-    "greet": (text) -> (text) query;
+type InitArg = record {
+  fee_e8s : nat64;
+  icp_ledger_principal : principal;
+  xrc_principal : principal;
+  icusd_ledger_principal : principal;
+  developer_principal : principal;
+};
+type Event = variant {
+  claim_liquidity_returns : record {
+    block_index : nat64;
+    caller : principal;
+    amount : nat64;
+  };
+  repay_to_vault : record {
+    block_index : nat64;
+    vault_id : nat64;
+    repayed_amount : nat64;
+  };
+  provide_liquidity : record {
+    block_index : nat64;
+    caller : principal;
+    amount : nat64;
+  };
+  init : InitArg;
+  open_vault : record { block_index : nat64; vault : Vault };
+  redemption_on_vaults : record {
+    owner : principal;
+    icusd_block_index : nat64;
+    icusd_amount : nat64;
+    fee_amount : nat64;
+    current_icp_rate : vec nat8;
+  };
+  margin_transfer : record { block_index : nat64; vault_id : nat64 };
+  upgrade : UpgradeArg;
+  borrow_from_vault : record {
+    block_index : nat64;
+    vault_id : nat64;
+    fee_amount : nat64;
+    borrowed_amount : nat64;
+  };
+  redistribute_vault : record { vault_id : nat64 };
+  withdraw_liquidity : record {
+    block_index : nat64;
+    caller : principal;
+    amount : nat64;
+  };
+  close_vault : record { block_index : opt nat64; vault_id : nat64 };
+  add_margin_to_vault : record {
+    block_index : nat64;
+    vault_id : nat64;
+    margin_added : nat64;
+  };
+  redemption_transfered : record {
+    icusd_block_index : nat64;
+    icp_block_index : nat64;
+  };
+  liquidate_vault : record {
+    mode : Mode;
+    icp_rate : vec nat8;
+    vault_id : nat64;
+  };
+};
+type LiquidityStatus = record {
+  liquidity_provided : nat64;
+  total_liquidity_provided : nat64;
+  liquidity_pool_share : float64;
+  available_liquidity_reward : nat64;
+  total_available_returns : nat64;
+};
+type Fees = record { redemption_fee : float64; borrowing_fee : float64 };
+type Mode = variant { ReadOnly; GeneralAvailability; Recovery };
+type OpenVaultSuccess = record { block_index : nat64; vault_id : nat64 };
+type ProtocolArg = variant { Upgrade : UpgradeArg; Init : InitArg };
+type ProtocolError = variant {
+  GenericError : text;
+  TemporarilyUnavailable : text;
+  TransferError : TransferError;
+  AlreadyProcessing;
+  AnonymousCallerNotAllowed;
+  AmountTooLow : record { minimum_amount : nat64 };
+  TransferFromError : record { TransferFromError; nat64 };
+  CallerNotOwner;
+};
+type ProtocolStatus = record {
+  mode : Mode;
+  total_icusd_borrowed : nat64;
+  total_icp_margin : nat64;
+  last_icp_timestamp : nat64;
+  last_icp_rate : float64;
+  total_collateral_ratio: float64;
+};
+type TransferError = variant {
+  GenericError : record { message : text; error_code : nat };
+  TemporarilyUnavailable;
+  BadBurn : record { min_burn_amount : nat };
+  Duplicate : record { duplicate_of : nat };
+  BadFee : record { expected_fee : nat };
+  CreatedInFuture : record { ledger_time : nat64 };
+  TooOld;
+  InsufficientFunds : record { balance : nat };
+};
+type TransferFromError = variant {
+  GenericError : record { message : text; error_code : nat };
+  TemporarilyUnavailable;
+  InsufficientAllowance : record { allowance : nat };
+  BadBurn : record { min_burn_amount : nat };
+  Duplicate : record { duplicate_of : nat };
+  BadFee : record { expected_fee : nat };
+  CreatedInFuture : record { ledger_time : nat64 };
+  TooOld;
+  InsufficientFunds : record { balance : nat };
+};
+type UpgradeArg = record { mode : opt Mode };
+type GetEventsArg = record { start : nat64; length : nat64 };
+type Vault = record {
+  owner : principal;
+  vault_id : nat64;
+  icp_margin_amount : nat64;
+  borrowed_icusd_amount : nat64;
+};
+type SuccessWithFee = record { block_index : nat64; fee_amount_paid : nat64 };
+type VaultArg = record { vault_id : nat64; amount : nat64 };
+service : (ProtocolArg) -> {
+  // Vault related operations
+  redeem_icp : (nat64) -> (variant { Ok : SuccessWithFee; Err : ProtocolError });
+  open_vault : (nat64) -> (variant { Ok : OpenVaultSuccess; Err : ProtocolError });
+  add_margin_to_vault : (VaultArg) -> (variant { Ok : nat64; Err : ProtocolError });
+  borrow_from_vault : (VaultArg) -> (variant { Ok : SuccessWithFee; Err : ProtocolError });
+  repay_to_vault : (VaultArg) -> (variant { Ok : nat64; Err : ProtocolError });
+  close_vault : (nat64) -> (variant { Ok : opt nat64; Err : ProtocolError });
+
+  // Liquidity related operations
+  provide_liquidity : (nat64) -> (variant { Ok : nat64; Err : ProtocolError });
+  withdraw_liquidity : (nat64) -> (variant { Ok : nat64; Err : ProtocolError });
+  claim_liquidity_returns : () -> (variant { Ok : nat64; Err : ProtocolError });
+
+  // Query endpoints
+  get_fees : (nat64) -> (Fees) query;
+  get_liquidity_status : (principal) -> (LiquidityStatus) query;
+  get_protocol_status : () -> (ProtocolStatus) query;
+  get_vaults : (opt principal) -> (vec Vault) query;
+  get_vault_history : (nat64) -> (vec Event) query;
+  get_events : (GetEventsArg) -> (vec Event) query;
 }

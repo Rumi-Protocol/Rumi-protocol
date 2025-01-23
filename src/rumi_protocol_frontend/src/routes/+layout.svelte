@@ -62,7 +62,7 @@
       </a>
       
       <a 
-        href="/RP-Whitepaper-2nd-draft.pdf"
+        href="/Rumi-Protocol-3rd-Version.pdf"
         target="_blank"
         class="px-12 py-4 rounded-xl font-medium text-2xl
                bg-gradient-to-r from-purple-700 to-pink-500

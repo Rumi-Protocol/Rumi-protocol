@@ -4,15 +4,17 @@
     "npm": ">=7.0.0"
   },
   "name": "rumi_protocol",
+  "private": true,
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "prebuild": "npm run prebuild --workspaces --if-present",
     "pretest": "npm run prebuild --workspaces --if-present",
-    "start": "npm start --workspaces --if-present",
+    "start": "npm start --workspace=src/rumi_protocol_frontend",
     "test": "npm test --workspaces --if-present"
   },
   "type": "module",
   "workspaces": [
-    "src/rumi_protocol_frontend"
+    "src/rumi_protocol_frontend",
+    "src/vault_frontend"
   ]
 }

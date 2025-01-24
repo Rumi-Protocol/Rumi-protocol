@@ -1,5 +1,0 @@
-service : {
-  get_token_decimals : () -> (nat8);
-  get_token_name : () -> (text);
-  get_token_symbol : () -> (text);
-}

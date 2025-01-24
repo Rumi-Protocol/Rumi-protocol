@@ -1,4 +1,10 @@
 {
+  "icp_ledger": {
+    "ic": "4nfpw-byaaa-aaaai-q3tqa-cai"
+  },
+  "icusd_ledger": {
+    "ic": "4kejc-maaaa-aaaai-q3tqq-cai"
+  },
   "rumi_protocol_backend": {
     "ic": "aakb7-rqaaa-aaaai-q3oua-cai"
   },

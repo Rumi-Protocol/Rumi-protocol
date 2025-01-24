@@ -4,7 +4,11 @@
       "candid": "src/rumi_protocol_backend/rumi_protocol_backend.did",
       "package": "rumi_protocol_backend",
       "type": "rust",
-      "shrink": false
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     },
     "rumi_protocol_frontend": {
       "dependencies": [
@@ -14,24 +18,6 @@
       ],
       "type": "assets",
       "workspace": "rumi_protocol_frontend"
-    },
-    "rumi_vault": {
-      "candid": "src/rumi_vault/rumi_vault.did",
-      "type": "custom",
-      "package": "rumi_vault",
-      "declarations": {
-        "node_compatibility": true
-      },
-      "wasm": "target/wasm32-unknown-unknown/release/rumi_vault.wasm",
-      "build": [
-        "cargo build --target wasm32-unknown-unknown --release -p rumi_vault",
-        "candid-extractor target/wasm32-unknown-unknown/release/rumi_vault.wasm > src/rumi_vault/rumi_vault.did"
-      ],
-			"metadata": [
-				{
-					"name": "candid:service"
-				}
-			]
     },
     "vault_frontend": {
       "dependencies": [
@@ -43,13 +29,13 @@
       "type": "assets",
       "workspace": "vault_frontend"
     },
-    "icUSD_ledger": {
+    "icusd_ledger": {
         "candid": "src/ledger/ledger.did",
         "type": "custom",
         "wasm": "src/ledger/ic-icrc1-ledger.wasm",
         "shrink": false
     },
-    "ICP_ledger": {
+    "icp_ledger": {
         "candid": "src/ledger/ledger.did",
         "type": "custom",
         "wasm": "src/ledger/ic-icrc1-ledger.wasm",

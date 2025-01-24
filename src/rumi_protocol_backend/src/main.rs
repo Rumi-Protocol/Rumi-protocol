@@ -547,12 +547,12 @@ fn check_candid_interface_compatibility() {
 
     // check the public interface against the actual one
     let old_interface =
-        std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("protocol.did");
+        std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("rumi_protocol_backend.did");
 
     check_service_compatible(
         "actual Rumi Protocol candid interface",
         candid::utils::CandidSource::Text(&new_interface),
-        "declared candid interface in protocol.did file",
+        "declared candid interface in rumi_protocol_backend.did file",
         candid::utils::CandidSource::File(old_interface.as_path()),
     );
 }

@@ -1,43 +1,56 @@
 <script>
+  import FeatureCard from '$lib/components/FeatureCard.svelte';
   let description = "A decentralized stablecoin on ICP, bringing financial stability to Web3.";
 </script>
 
+<section class="flex flex-col items-center justify-center py-10 md:py-12 px-4 md:px-4">
+  <!-- Animated Coins -->
+  <div class="flex justify-center items-center space-x-2 md:space-x-4 mb-8 md:mb-12">
+    <img src="/coin3.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-normal" />
+    <img src="/coin3.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-higher" />
+    <img src="/coin3.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-normal" />
+  </div>
 
-<section class="flex flex-col items-center justify-center  p-10">
+  <!-- Title and Description -->
+  <div class="text-center max-w-4xl mx-auto mb-12">
+    <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold gradient-outline mb-6 animate-title">
+      icUSD - The Future of Stablecoin on ICP
+    </h1>
+    <p class="text-lg md:text-xl text-gray-300 animate-title" style="animation-delay: 0.3s">
+      {description}
+    </p>
+  </div>
 
-<div class="flex justify-center items-center space-x-4 pb-10">
-  <img src="/coin3.png" alt="Coin 3" class="w-40 h-36 md:w-48 md:h-48 bounce-normal" />
-  <img src="/coin3.png" alt="Coin 1" class="w-40 h-36 md:w-48 md:h-48 bounce-higher" />
-  <img src="/coin3.png" alt="Coin 3" class="w-40 h-36 md:w-48 md:h-48 bounce-normal" />
-</div>
-
-  <h1 class="text-5xl font-bold text-center text-white gradient-outline">icUSD - The Future of Stablecoin on ICP</h1>
-  <p class="text-2xl mt-4 text-gray-300 text-center max-w-2xl">{description}</p>
-  
-
-
-
-  <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl">
-    <div class="bg-gray-900 p-6 rounded-lg shadow-lg
-         hover:bg-gray-700
-    ">
-      <h3 class="text-xl font-semibold text-blue-400">Secure & Transparent</h3>
-      <p class="text-gray-300 mt-2">Built on ICP with full transparency and security.</p>
-    </div>
+  <!-- Feature Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-5xl">
+    <FeatureCard 
+      title="Secure & Transparent"
+      description="Built on ICP with full transparency and security."
+      color="blue"
+    />
     
-    <div class="bg-gray-900 p-6 rounded-lg shadow-lg hover:bg-gray-700">
-      <h3 class="text-xl font-semibold text-purple-400">Fully on Chain</h3>
-      <p class="text-gray-300 mt-2">Easily integrate your wallet using Plug.</p>
-    </div>
+    <FeatureCard 
+      title="Fully on Chain"
+      description="Easily integrate your wallet using Plug."
+      color="purple"
+    />
   </div>
 </section>
 
 <style>
-  section {
-    text-align: center;
-    border-radius: 10px;
-    font-family: 'Inter', sans-serif;
+  .animate-title {
+    opacity: 0;
+    animation: fadeSlideIn 1s ease-out forwards;
   }
 
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 </style>
-

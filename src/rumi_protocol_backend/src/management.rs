@@ -69,7 +69,7 @@ impl fmt::Display for Reason {
 /// Query the XRC canister to retrieve the last BTC/USD price.
 /// https://github.com/dfinity/exchange-rate-canister
 pub async fn fetch_icp_price() -> Result<GetExchangeRateResult, String> {
-    const XRC_CALL_COST_CYCLES: u64 = 10_000_000_000;
+    const XRC_CALL_COST_CYCLES: u64 = 1_000_000_000;
     const XRC_MARGIN_SEC: u64 = 60;
 
     let icp = Asset {

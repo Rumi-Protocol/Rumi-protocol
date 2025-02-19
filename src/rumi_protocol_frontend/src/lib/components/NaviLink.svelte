@@ -1,21 +1,15 @@
-<script>
-  export let href;
-  export let active = false;
-  export let isWhitepaper = false;
+<script lang="ts">
+  export let href: string;
+  export let active: boolean = false;
+  export let isWhitepaper: boolean = false;
 </script>
 
-<a 
-  {href} 
-  class="px-10 py-5 rounded-xl font-medium text-1xl lg:text-2xl
-         transition-all duration-300 transform hover:scale-105
-         {isWhitepaper ? 
-           'bg-gradient-to-r from-gray-900 to-gray-900 hover:from-purple-600 hover:to-pink-400' : 
-           'bg-gray-900/100 hover:bg-purple-500/80'} 
-         ring-2 ring-gray-300/50
-
-         shadow-lg shadow-gray-500/20
-         whitespace-nowrap"
+<a
+  {href}
+  class="nav-text"
+  class:active
   target={isWhitepaper ? "_blank" : undefined}
+  rel={isWhitepaper ? "noopener noreferrer" : undefined}
 >
   <slot />
 </a>
@@ -23,5 +17,8 @@
 <style>
   a {
     letter-spacing: 0.5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    font-size: 1.15rem;
+    padding: 0.5rem 1rem;
   }
 </style>

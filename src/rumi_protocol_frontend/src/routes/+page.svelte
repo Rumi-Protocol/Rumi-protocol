@@ -6,9 +6,9 @@
 <section class="flex flex-col items-center justify-center py-10 md:py-12 px-4 md:px-4">
   <!-- Animated Coins -->
   <div class="flex justify-center items-center space-x-2 md:space-x-4 mb-8 md:mb-12">
-    <img src="/coin3.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-normal" />
-    <img src="/coin3.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-higher" />
-    <img src="/coin3.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-normal" />
+    <img src="/icUSD-logo.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-normal" />
+    <img src="/icUSD-logo.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-higher" />
+    <img src="/icUSD-logo.png" alt="Coin" class="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bounce-normal" />
   </div>
 
   <!-- Title and Description -->

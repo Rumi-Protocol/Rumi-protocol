@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
   import NaviLink from '$lib/components/NaviLink.svelte';
   import "../app.css";
   
-  let currentPath;
+  let currentPath: string;
   
   onMount(() => {
     currentPath = window.location.pathname;
@@ -14,96 +14,159 @@
 </script>
 
 <div class="min-h-screen flex flex-col">
-<header class="w-full p-4 md:p-6 bg-transparent text-white relative">
-  <!-- Social Icons -->
-  <div class="absolute top-4 right-4 md:top-6 md:right-8 flex space-x-4 md:space-x-7 z-20">
+  <header class="w-full px-6 py-4 glass-panel sticky top-0 z-50 mb-10">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <!-- Logo section -->
+      <div class="flex items-center gap-4">
+        <img src="/rumi-header-logo.png" alt="Rumi Labs Logo" class="w-20 h-auto" />
+        <img src="/rumi-labs-without-BG.png" alt="Rumi Labs Name" class="h-10 w-auto" />
+      </div>
+      
+      <div class="flex items-center gap-8">
+        <!-- Text-only navigation -->
+        <nav class="hidden md:flex items-center gap-4">
+          <div class="flex items-center gap-4 mr-6">
+            <NaviLink href="/" active={currentPath === '/'} class="nav-text">Home</NaviLink>
+            <NaviLink href="/about" active={currentPath === '/about'} class="nav-text">About Rumi</NaviLink>
+            <NaviLink href="/Rumi-Protocol-3rd-Version.pdf" isWhitepaper={true} class="nav-text">Whitepaper</NaviLink>
+          </div>
+          
+          <!-- Launch button remains styled -->
+          <a href="https://rumiprotocol.io" 
+             target="_blank" 
+             class="launch-button">
+            Launch Dapp
+          </a>
+        </nav>
 
-    <a href="mailto:team@rumilabs.xyz" class="hover:opacity-80 transition">
-      <img src="/email.png" alt="Email Us" class="w-6 h-6 md:w-8 md:h-8" />
-    </a>
-
-    <a href="https://x.com/rumilabsxyz" target="_blank" class="hover:opacity-80 transition">
-      <img src="/twitterIcon.png" alt="Follow us on Twitter" class="w-6 h-6 md:w-8 md:h-8" />
-    </a>
-
-  </div>
-
-  <div class="max-w-7xl mx-auto flex flex-col items-center space-y-10 px-4">
-    <!-- Logo and Name Container -->
-    <div class="flex flex-col md:flex-row items-center justify-center md:space-x-6 space-y-4 md:space-y-0">
-      <img src="/rumi-header-logo.png" alt="Rumi Labs Logo" 
-           class="w-32 md:w-32 lg:w-40 h-auto" />
-      <img src="/rumi-labs-without-BG.png" alt="Rumi Labs Name" 
-           class="w-56 md:w-64 lg:w-80 h-auto" />
+        <!-- Social icons -->
+        <div class="flex items-center gap-8">
+          <a href="mailto:team@rumilabs.xyz" class="hover:opacity-80 transition" aria-label="Email Us">
+            <img src="/message-outline-512.png" alt="Email" class="w-8 h-8" />
+          </a>
+          <a href="https://x.com/rumilabsxyz" target="_blank" rel="noopener noreferrer" class="hover:opacity-80 transition" aria-label="Follow us on Twitter">
+            <img src="/twitter-x-256.png" alt="Twitter" class="w-8 h-8" />
+          </a>
+        </div>
+      </div>
     </div>
-    
-    <!-- Navigation -->
-    <nav class="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4 w-full">
-      <NaviLink href="/" active={currentPath === '/'}>
-        Home
-      </NaviLink>
-      
-      <NaviLink href="/about" active={currentPath === '/about'}>
-        About Rumi
-      </NaviLink>
-      
-      <NaviLink href="/Rumi-Protocol-3rd-Version.pdf" isWhitepaper={true}>
-        Whitepaper
-      </NaviLink>
-    </nav>
-  </div>
-</header>
+  </header>
 
-<!-- Main Content -->
-<main class="flex-1 px-4 md:px-6">
-  <slot />
-</main>
+  <main class="flex-grow px-4 md:px-6 py-8 relative z-10">
+    <slot />
+  </main>
 
-<!-- Footer -->
-<footer class="w-full p-4 md:p-6 bg-black/70 backdrop-blur-sm text-white">
-  <div class="max-w-7xl mx-auto">
-    <p class="text-sm md:text-base text-center md:text-left">
-      &copy; 2025 Rumi Labs LLC. All rights reserved.
-    </p>
-  </div>
-</footer>
+  <footer class="w-full p-4 md:p-6 bg-black/40 backdrop-blur-xl text-white border-t border-white/10 mt-auto">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <p class="text-sm md:text-base">
+        &copy; 2025 Rumi Labs LLC. All rights reserved.
+      </p>
+      <a 
+        href="https://rumiprotocol.io" 
+        target="_blank" 
+        class="text-sm md:text-base hover:text-purple-400 transition-colors">
+        Launch Dapp →
+      </a>
+    </div>
+  </footer>
 </div>
-
-<!-- Create a NavLink component for reusability -->
-<script context="module">
-  const NavLink = {
-    props: {
-      href: String,
-      active: Boolean,
-      isWhitepaper: Boolean
-    },
-    render() {
-      const baseClasses = "px-6 py-3 md:px-8 rounded-xl font-medium text-lg md:text-xl transition-all duration-200";
-      const regularClasses = `${baseClasses} bg-purple-700/90 hover:bg-purple-600/80 ring-2 ring-purple-400/50`;
-      const whitepaperClasses = `${baseClasses} bg-gradient-to-r from-purple-700 to-pink-500 hover:from-purple-600 hover:to-pink-400 ring-2 ring-purple-400/50 shadow-lg shadow-purple-500/20`;
-      
-      return this.isWhitepaper ? whitepaperClasses : regularClasses;
-    }
-  };
-</script>
-
 
 <style>
   :global(body) {
-    background: linear-gradient(100deg,rgb(180, 69, 187),rgb(13, 139, 177));
     min-height: 100vh;
     margin: 0;
     font-family: 'Inter', system-ui, sans-serif;
-  }
-  
-  :global(body) {
+    color: white;
+    background: linear-gradient(135deg, #29024f 0%, #4a148c 50%, #1a237e 100%);
     background-size: 200% 200%;
-    animation: gradientMove 10s ease infinite;
+    animation: gradientMove 15s ease infinite;
+    display: flex;
+    flex-direction: column;
   }
-  
+
   @keyframes gradientMove {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
+  }
+
+  .glass-panel {
+    @apply bg-black/20 backdrop-blur-md border-b border-white/10;
+  }
+
+  .nav-link {
+    @apply px-4 py-2 rounded-lg text-gray-300 hover:text-white
+           hover:bg-[#522785]/20 transition-all duration-200;
+  }
+
+  .nav-link.active {
+    @apply bg-[#522785]/30 text-white;
+  }
+
+  /* Remove the large logo and name section */
+  :global(.logo-section) {
+    display: none;
+  }
+
+  :global(#app) {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Add new styles for the launch button animation */
+  a[href="https://rumiprotocol.io"] {
+    position: relative;
+    overflow: hidden;
+  }
+
+  a[href="https://rumiprotocol.io"]:after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transition: 0.5s;
+  }
+
+  a[href="https://rumiprotocol.io"]:hover:after {
+    left: 100%;
+  }
+
+  .nav-text {
+    @apply text-gray-300 hover:text-white relative text-xl
+           transition-all duration-200 font-semibold tracking-wide;
+  }
+
+  .nav-text::after {
+    content: '';
+    @apply absolute left-0 bottom-0 w-0 h-0.5 bg-purple-400
+           transition-all duration-200;
+  }
+
+  .nav-text:hover::after {
+    @apply w-full;
+  }
+
+  .nav-text.active {
+    @apply text-white;
+  }
+
+  .nav-text.active::after {
+    @apply w-full bg-purple-500;
+  }
+
+  .launch-button {
+    @apply px-6 py-2 bg-gradient-to-r from-[#522785] to-[#29abe2] 
+           rounded-lg font-medium text-white hover:opacity-90 
+           transition-all duration-200 shadow-lg hover:shadow-xl 
+           transform hover:-translate-y-0.5;
   }
 </style>

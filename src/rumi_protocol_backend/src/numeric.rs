@@ -158,7 +158,7 @@ pub type ICP = Token<IcpTag>;        // Integer token amounts
 pub type UsdIcp = Amount<UsdIcpTag>; // Decimal exchange rate
 pub type Ratio = Amount<RatioTag>;   // Decimal ratios
 
-// ...existing code...
+
 
 impl<T> Sum for Token<T> {
     fn sum<I>(iter: I) -> Self

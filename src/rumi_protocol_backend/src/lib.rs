@@ -1,9 +1,18 @@
+use ic_cdk::{query, update, init};
 use serde::{Serialize};
-use icrc_ledger_types::icrc1::transfer::TransferError;
-use icrc_ledger_types::icrc2::transfer_from::TransferFromError;
+use ic_stable_structures::memory_manager::{MemoryId, MemoryManager};
+use ic_stable_structures::DefaultMemoryImpl;
+use icrc_ledger_types::icrc::generic_metadata_value::MetadataValue;
+use icrc_ledger_types::icrc1::account::Account;
+use icrc_ledger_types::icrc1::transfer::{BlockIndex, Memo, TransferArg, TransferError};
+use icrc_ledger_types::icrc2::allowance::{Allowance, AllowanceArgs};
+use icrc_ledger_types::icrc2::approve::{ApproveArgs, ApproveError};
+use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
+use icrc_ledger_types::icrc3::transactions::{Approve, Burn, Mint, Transaction, Transfer};
+use std::cell::RefCell;
 use crate::state::PendingMarginTransfer;
 
-use crate::event::record_liquidate_vault;
+use crate::event::{record_liquidate_vault, record_redistribute_vault};
 use crate::guard::GuardError;
 use crate::logs::{DEBUG, INFO};
 use crate::numeric::{Ratio, ICUSD, ICP, UsdIcp};
@@ -26,6 +35,9 @@ pub mod state;
 pub mod storage;
 pub mod vault;
 pub mod xrc;
+
+#[cfg(any(test, feature = "test_endpoints"))]
+pub mod test_helpers; 
 
 #[cfg(test)]
 mod tests;
@@ -123,7 +135,12 @@ impl From<GuardError> for ProtocolError {
 }
 
 pub fn check_vaults() {
-    let last_icp_rate = read_state(|s| s.last_icp_rate.expect("unknown icp rate"));
+    let last_icp_rate = read_state(|s| {
+        s.last_icp_rate.unwrap_or_else(|| {
+            log!(INFO, "[check_vaults] No ICP rate available, using default rate");
+            UsdIcp::from(dec!(1.0))
+        })
+    });
     let (unhealthy_vaults, healthy_vault) = read_state(|s| {
         let mut unhealthy_vaults: Vec<Vault> = vec![];
         let mut healthy_vault: Vec<Vault> = vec![];

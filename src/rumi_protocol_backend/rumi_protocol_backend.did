@@ -120,6 +120,21 @@ type Vault = record {
 };
 type SuccessWithFee = record { block_index : nat64; fee_amount_paid : nat64 };
 type VaultArg = record { vault_id : nat64; amount : nat64 };
+
+// Add HTTP types
+type HttpRequest = record {
+  url : text;
+  method : text;
+  body : blob;
+  headers : vec record { text; text };
+};
+
+type HttpResponse = record {
+  body : blob;
+  headers : vec record { text; text };
+  status_code : nat16;
+};
+
 service : (ProtocolArg) -> {
   // Vault related operations
   redeem_icp : (nat64) -> (variant { Ok : SuccessWithFee; Err : ProtocolError });
@@ -141,4 +156,8 @@ service : (ProtocolArg) -> {
   get_vaults : (opt principal) -> (vec Vault) query;
   get_vault_history : (nat64) -> (vec Event) query;
   get_events : (GetEventsArg) -> (vec Event) query;
+  get_redemption_rate : () -> (float64) query;  // Added missing method
+
+  // Add HTTP endpoint
+  http_request : (HttpRequest) -> (HttpResponse) query;
 }

@@ -8,6 +8,8 @@ use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromErro
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use num_traits::ToPrimitive;
 use std::fmt;
+use crate::log;
+use crate::DEBUG;
 
 /// Represents an error from a management canister call
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,21 +93,29 @@ pub async fn fetch_icp_price() -> Result<GetExchangeRateResult, String> {
 
     let xrc_principal = read_state(|s| s.xrc_principal);
 
-    let res_xrc: Result<(GetExchangeRateResult,), (i32, String)> =
-        ic_cdk::api::call::call_with_payment(
-            xrc_principal,
-            "get_exchange_rate",
-            (args,),
-            XRC_CALL_COST_CYCLES,
-        )
-        .await
-        .map_err(|(code, msg)| (code as i32, msg));
-    match res_xrc {
-        Ok((xr,)) => Ok(xr),
-        Err((code, msg)) => Err(format!(
-            "Error while calling XRC canister ({}): {:?}",
-            code, msg
-        )),
+    let res_xrc: Result<(GetExchangeRateResult,), _> = ic_cdk::api::call::call_with_payment(
+        xrc_principal,
+        "get_exchange_rate",
+        (args.clone(),),  // Clone args for logging
+        XRC_CALL_COST_CYCLES,
+    )
+    .await;
+
+    // Add detailed logging
+    match &res_xrc {
+        Ok((xr,)) => {
+            log!(DEBUG, "[fetch_icp_price] XRC request args: {:?}", args);
+            log!(DEBUG, "[fetch_icp_price] XRC response: {:?}", xr);
+            Ok(xr.clone())
+        }
+        Err((code, msg)) => {
+            log!(DEBUG, "[fetch_icp_price] XRC request args: {:?}", args);
+            log!(DEBUG, "[fetch_icp_price] XRC error code: {:?}, message: {}", code, msg);  // Changed to {:?}
+            Err(format!(
+                "Error while calling XRC canister ({:?}): {:?}",  // Changed to {:?}
+                code, msg
+            ))
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::logs::TRACE_XRC;
-use crate::numeric::UsdIcp;  // Changed from UsdBtc
+use crate::numeric::UsdIcp;  
 use crate::state::{mutate_state, read_state};
 use crate::Decimal;
 use crate::Mode;

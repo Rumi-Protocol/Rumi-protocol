@@ -16,6 +16,8 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use rumi_protocol_backend::storage::events;
 use rumi_protocol_backend::LiquidityStatus;
+use candid_parser::utils::CandidSource;
+use candid_parser::utils::service_equal;
 
 
 #[cfg(feature = "self_check")]
@@ -508,24 +510,25 @@ fn http_request(req: HttpRequest) -> HttpResponse {
 // Checks the real candid interface against the one declared in the did file
 #[test]
 fn check_candid_interface_compatibility() {
-    fn source_to_str(source: &candid::utils::CandidSource) -> String {
+    fn source_to_str(source: &CandidSource) -> String {
         match source {
-            candid::utils::CandidSource::File(f) => {
+            CandidSource::File(f) => {
                 std::fs::read_to_string(f).unwrap_or_else(|_| "".to_string())
             }
-            candid::utils::CandidSource::Text(t) => t.to_string(),
+            CandidSource::Text(t) => t.to_string(),
         }
     }
+    
 
     fn check_service_compatible(
         new_name: &str,
-        new: candid::utils::CandidSource,
+        new: CandidSource,
         old_name: &str,
-        old: candid::utils::CandidSource,
+        old: CandidSource,
     ) {
         let new_str = source_to_str(&new);
         let old_str = source_to_str(&old);
-        match candid::utils::service_equal(new, old) {
+        match service_equal(new, old) {
             Ok(_) => {}
             Err(e) => {
                 eprintln!(
@@ -551,8 +554,8 @@ fn check_candid_interface_compatibility() {
 
     check_service_compatible(
         "actual Rumi Protocol candid interface",
-        candid::utils::CandidSource::Text(&new_interface),
+        CandidSource::Text(&new_interface),
         "declared candid interface in rumi_protocol_backend.did file",
-        candid::utils::CandidSource::File(old_interface.as_path()),
+        CandidSource::File(old_interface.as_path()),
     );
 }

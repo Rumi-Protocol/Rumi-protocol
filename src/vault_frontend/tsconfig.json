@@ -13,7 +13,7 @@
 		"sourceMap": true,
 		"strict": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
@@ -26,6 +26,9 @@
     "src/**/*.js",
     "src/**/*.svelte",
     "src/types/**/*.d.ts",
-    "node_modules/@types"
+    "node_modules/@types",
+    "src/declarations/**/*.ts",
+    "src/declarations/**/*.js"
+  
   ]
 }

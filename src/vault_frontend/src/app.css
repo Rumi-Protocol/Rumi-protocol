@@ -1,85 +1,133 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+:root {
+  --icp-purple: #522785;
+  --icp-blue: #29abe2;
+  --icp-dark: #1c1c1c;
+  --accent-gradient: linear-gradient(45deg, var(--icp-purple), var(--icp-blue));
+  --gradient-end: #1b1c22;
+  --gradient-start: #1a2f53;
+}
 
-@layer base {
-  :root {
-    /*
-   --gradient-start: #1b1c22;
-    --gradient-end: #1d335a;
-    */
-    --gradient-end: #1b1c22;
-    --gradient-start: #1a2f53;
+body {
+  min-height: 100vh;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #29024f 0%, #522785 50%, #1a237e 100%);
+  background-size: 400% 400%;
+  animation: gradientMove 15s ease infinite;
+}
 
-  }
-  
-  body {
-    background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-    background-size: 200% 200%;
-    animation: gradientMove 15s ease infinite;
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+}
 
-    
-  }
+.icp-button {
+  padding: 0.5rem 1rem;
+  background-color: #522785;
+  color: white;
+  border-radius: 0.5rem;
+  transition: all 0.3s;
+}
+
+.icp-button:hover {
+  background-color: #29abe2;
+}
+
+.icp-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icp-input {
+  padding: 0.5rem 1rem;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(82, 39, 133, 0.3);
+  border-radius: 0.5rem;
+  color: white;
+}
+
+.icp-input::placeholder {
+  color: rgba(156, 163, 175, 1);
+}
+
+.icp-input:focus {
+  outline: none;
+  border-color: #29abe2;
+}
+
+.icp-card {
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(82, 39, 133, 0.2);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.3s;
+}
+
+.icp-card:hover {
+  border-color: rgba(41, 171, 226, 0.3);
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 
+@keyframes bounceHigher {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-60px); 
+  }
+}
 
-  .gradient-outline {
-    font-size: 3rem;
-    font-weight: bold;
+.bounce-higher {
+  animation: bounceHigher 4s infinite;
+}
 
-    background: linear-gradient(90deg, #ff6200, #ffcc00, #00ffff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    -webkit-text-stroke: 2px transparent;
-    position: relative;
+@keyframes bounceNormal {
+  0%, 100% {
+    transform: translateY(0);
   }
-  
-  @keyframes bounceHigher {
-    0%, 100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-60px); 
-    }
+  50% {
+    transform: translateY(-30px); 
   }
-  
-  .bounce-higher {
-    animation: bounceHigher 4s infinite;
+}
+
+.bounce-normal {
+  animation: bounceHigher 5s infinite;
+}
+
+@keyframes fadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(+30px);
   }
-  
-  @keyframes bounceNormal {
-    0%, 100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-30px); 
-    }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
-  
-  .bounce-normal {
-    animation: bounceHigher 5s infinite;
-  }
-  
-  @keyframes fadeSlideIn {
-    0% {
-      opacity: 0;
-      transform: translateY(+30px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  .animate-title {
-    animation: fadeSlideIn 2.5s ease-out;
-  }
-  
+}
+
+.animate-title {
+  animation: fadeSlideIn 2.5s ease-out;
+}
+
+.background-clip-text {
+  -webkit-background-clip: text;
+  background-clip: text;
+}

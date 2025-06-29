@@ -25,6 +25,8 @@ pub enum Event {
         vault_id: u64,
         mode: Mode,
         icp_rate: UsdIcp,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        liquidator: Option<Principal>,
     },
 
     #[serde(rename = "redemption_on_vaults")]
@@ -93,6 +95,27 @@ pub enum Event {
 
     #[serde(rename = "upgrade")]
     Upgrade(UpgradeArg),
+
+    #[serde(rename = "collateral_withdrawn")]
+    CollateralWithdrawn {
+        vault_id: u64,
+        amount: ICP,
+        block_index: u64,
+    },
+
+    VaultWithdrawnAndClosed {
+        vault_id: u64,
+        caller: Principal,
+        amount: ICP,
+        timestamp: u64,
+    },
+
+    #[serde(rename = "withdraw_and_close_vault")]
+    WithdrawAndCloseVault {
+        vault_id: u64,
+        amount: ICP,
+        block_index: Option<u64>,
+    },
 }
 
 impl Event {
@@ -114,6 +137,9 @@ impl Event {
             Event::ClaimLiquidityReturns { .. } => false,
             Event::Init(_) => false,
             Event::Upgrade(_) => false,
+            Event::CollateralWithdrawn { vault_id, .. } => vault_id == filter_vault_id,
+            Event::VaultWithdrawnAndClosed { vault_id, .. } => vault_id == filter_vault_id,
+            Event::WithdrawAndCloseVault { vault_id, .. } => vault_id == filter_vault_id,
         }
     }
 }
@@ -155,6 +181,7 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<State, ReplayLo
                 vault_id,
                 mode,
                 icp_rate,
+                liquidator: _,
             } => state.liquidate_vault(vault_id, mode, icp_rate),
             Event::RedistributeVault { vault_id } => state.redistribute_vault(vault_id),
             Event::BorrowFromVault {
@@ -213,6 +240,28 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<State, ReplayLo
             Event::MarginTransfer { vault_id, .. } => {
                 state.pending_margin_transfers.remove(&vault_id);
             }
+            Event::CollateralWithdrawn { vault_id, .. } => {
+                // The vault's margin has already been set to 0 in the vault.rs function
+            }
+            // In the match statement inside replay function
+            Event::VaultWithdrawnAndClosed {
+                vault_id,
+                caller: _,   // Ignore caller
+                amount: _,   // Ignore amount
+                timestamp: _, // Ignore timestamp
+            } => {
+                // Simply close the vault - previous implementation was incorrect
+                state.close_vault(vault_id);
+            },
+            // Add this case:
+            Event::WithdrawAndCloseVault { 
+                vault_id,
+                amount: _,
+                block_index: _,
+            } => {
+                // Close the vault during replay
+                state.close_vault(vault_id);
+            },
         }
     }
     state.next_available_vault_id = vault_id;
@@ -224,6 +273,7 @@ pub fn record_liquidate_vault(state: &mut State, vault_id: u64, mode: Mode, icp_
         vault_id,
         mode,
         icp_rate,
+        liquidator: None,
     });
     state.liquidate_vault(vault_id, mode, icp_rate);
 }
@@ -377,4 +427,34 @@ pub fn record_redemption_transfered(
         icp_block_index,
     });
     state.pending_redemption_transfer.remove(&icusd_block_index);
+}
+
+pub fn record_collateral_withdrawn(
+    state: &mut State,
+    vault_id: u64,
+    amount: ICP,
+    block_index: u64,
+) {
+    record_event(&Event::CollateralWithdrawn {
+        vault_id,
+        amount,
+        block_index,
+    });
+
+}
+
+pub fn record_withdraw_and_close_vault(
+    state: &mut State,
+    vault_id: u64,
+    amount: ICP,
+    block_index: Option<u64>
+) {
+    record_event(&Event::WithdrawAndCloseVault {
+        vault_id,
+        amount,
+        block_index,
+    });
+    
+    // Close the vault (withdrawal is already handled in vault.rs)
+    state.close_vault(vault_id);
 }

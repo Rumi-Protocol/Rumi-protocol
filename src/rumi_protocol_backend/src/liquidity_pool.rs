@@ -10,7 +10,7 @@ use icrc_ledger_types::icrc1::transfer::TransferError;
 
 pub async fn provide_liquidity(amount: u64) -> Result<u64, ProtocolError> {
     let caller = ic_cdk::api::caller();
-    let _guard_principal = GuardPrincipal::new(caller)?;
+    let _guard_principal = GuardPrincipal::new(caller, "provide_liquidity")?;
 
     let amount: ICUSD = amount.into();
 
@@ -37,7 +37,7 @@ pub async fn provide_liquidity(amount: u64) -> Result<u64, ProtocolError> {
 
 pub async fn withdraw_liquidity(amount: u64) -> Result<u64, ProtocolError> {
     let caller = ic_cdk::caller();
-    let _guard_principal = GuardPrincipal::new(caller)?;
+    let _guard_principal = GuardPrincipal::new(caller, "withdraw_liquidity")?;
 
     let amount: ICUSD = amount.into();
 
@@ -73,7 +73,7 @@ pub async fn withdraw_liquidity(amount: u64) -> Result<u64, ProtocolError> {
 
 pub async fn claim_liquidity_returns() -> Result<u64, ProtocolError> {
     let caller = ic_cdk::caller();
-    let _guard_principal = GuardPrincipal::new(caller)?;
+    let _guard_principal = GuardPrincipal::new(caller, "claim_liquidity_returns")?;
 
     let return_amount = read_state(|s| *s.liquidity_returns.get(&caller).expect("No reward"));
 

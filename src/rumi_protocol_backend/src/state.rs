@@ -2,7 +2,7 @@ use crate::numeric::{Ratio, UsdIcp, ICUSD, ICP};
 use crate::vault::Vault;
 use crate::{
     compute_collateral_ratio, InitArg, ProtocolError, UpgradeArg, MINIMUM_COLLATERAL_RATIO,
-    RECOVERY_COLLATERAL_RATIO,
+    RECOVERY_COLLATERAL_RATIO, INFO, SEC_NANOS,
 };
 use candid::Principal;
 use ic_canister_log::log;
@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use crate::guard::OperationState;
 
 // Like assert_eq, but returns an error instead of panicking.
 macro_rules! ensure_eq {
@@ -122,6 +123,9 @@ pub struct State {
     pub last_icp_rate: Option<UsdIcp>,
     pub last_icp_timestamp: Option<u64>,
     pub principal_guards: BTreeSet<Principal>,
+    pub principal_guard_timestamps: BTreeMap<Principal, u64>, // Add timestamps for guards
+    pub operation_states: BTreeMap<Principal, OperationState>, // Track operation states
+    pub operation_names: BTreeMap<Principal, String>, // Track operation names
     pub is_timer_running: bool,
     pub is_fetching_rate: bool,
 }
@@ -145,8 +149,11 @@ impl From<InitArg> for State {
             total_collateral_ratio: Ratio::from(Decimal::MAX),
             last_icp_timestamp: None,
             last_icp_rate: None,
-            next_available_vault_id: 0,
+            next_available_vault_id: 1,
             principal_guards: BTreeSet::new(),
+            principal_guard_timestamps: BTreeMap::new(), // Initialize empty timestamps map
+            operation_states: BTreeMap::new(),
+            operation_names: BTreeMap::new(),
             liquidity_pool: BTreeMap::new(),
             liquidity_returns: BTreeMap::new(),
             pending_margin_transfers: BTreeMap::new(),
@@ -338,7 +345,7 @@ impl State {
                     entry.remove_entry();
                 }
             }
-            Vacant(_) => ic_cdk::trap("cannot remove liquidity from unknow principal"),
+            Vacant(_) => ic_cdk::trap("cannot remove liquidity from unknown principal"),
         }
     }
 
@@ -351,7 +358,7 @@ impl State {
                     entry.remove_entry();
                 }
             }
-            Vacant(_) => ic_cdk::trap("cannot claim returns from unknow principal"),
+            Vacant(_) => ic_cdk::trap("cannot claim returns from unknown principal"),
         }
     }
 
@@ -392,7 +399,10 @@ impl State {
             match self.vault_id_to_vaults.get_mut(&vault_id) {
                 Some(vault) => {
                     vault.borrowed_icusd_amount = ICUSD::new(0);
-                    vault.icp_margin_amount -= partial_margin;
+                    
+                    // Ensure no underflow by taking the minimum
+                    let actual_deduction = partial_margin.min(vault.icp_margin_amount);
+                    vault.icp_margin_amount -= actual_deduction;
                 }
                 None => ic_cdk::trap("liquidating unknown vault"),
             }
@@ -549,6 +559,36 @@ impl State {
         }
 
         Ok(())
+    }
+
+    pub fn mark_operation_failed(&mut self, principal: &Principal) {
+        if let Some(state) = self.operation_states.get_mut(principal) {
+            *state = OperationState::Failed;
+        }
+    }
+    
+    // Add method to clean up stale operations regularly
+    pub fn clean_stale_operations(&mut self) {
+        // Get the current time
+        let now = ic_cdk::api::time();
+        
+        // Find any operations that are stale (older than 3 minutes)
+        const STALE_OPERATION_NANOS: u64 = 3 * 60 * SEC_NANOS;
+        
+        // Check for stale processing state based on actual Mode variants
+        // Mode is likely either GeneralAvailability, Recovery, or ReadOnly
+        if let Mode::Recovery = self.mode {
+            // If in recovery mode for too long, consider resetting
+            if let Some(last_timestamp) = self.last_icp_timestamp {
+                let age = now - last_timestamp;
+                
+                // If operation has been in processing mode for too long, reset it
+                if age > STALE_OPERATION_NANOS {
+                    log!(INFO, "[clean_stale_operations] Found stale recovery state, resetting mode to GeneralAvailability");
+                    self.mode = Mode::GeneralAvailability;
+                }
+            }
+        }
     }
 }
 

@@ -10,6 +10,10 @@ use rumi_protocol_backend::{
     vault::{CandidVault, OpenVaultSuccess, VaultArg},
     Fees, GetEventsArg, ProtocolArg, ProtocolError, ProtocolStatus, SuccessWithFee,
 };
+use rumi_protocol_backend::logs::DEBUG;
+use rumi_protocol_backend::state::mutate_state;
+use rumi_protocol_backend::management;
+use rumi_protocol_backend::event;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -43,7 +47,7 @@ fn check_invariants() -> Result<(), String> {
         recovered_state.check_invariants()?;
 
         // A running timer can temporarily violate invariants.
-        if !s.is_timer_running {
+        if (!s.is_timer_running) {
             s.check_semantically_eq(&recovered_state)?;
         }
 
@@ -305,8 +309,61 @@ async fn close_vault(vault_id: u64) -> Result<Option<u64>, ProtocolError> {
     check_postcondition(rumi_protocol_backend::vault::close_vault(vault_id).await)
 }
 
-// Liquidity related operations
+// Add the new withdraw collateral endpoint
+#[candid_method(update)]
+#[update]
+async fn withdraw_collateral(vault_id: u64) -> Result<u64, ProtocolError> {
+    validate_call()?;
+    check_postcondition(rumi_protocol_backend::vault::withdraw_collateral(vault_id).await)
+}
 
+#[candid_method(update)]
+#[update]
+async fn withdraw_and_close_vault(vault_id: u64) -> Result<Option<u64>, ProtocolError> {
+    validate_call()?;
+    check_postcondition(rumi_protocol_backend::vault::withdraw_and_close_vault(vault_id).await)
+}
+
+// Add the new liquidate vault endpoint
+#[candid_method(update)]
+#[update]
+async fn liquidate_vault(vault_id: u64) -> Result<SuccessWithFee, ProtocolError> {
+    validate_call()?;
+    check_postcondition(rumi_protocol_backend::vault::liquidate_vault(vault_id).await)
+}
+
+// Add the new get liquidatable vaults endpoint
+#[candid_method(query)]
+#[query]
+fn get_liquidatable_vaults() -> Vec<CandidVault> {
+    read_state(|s| {
+        let current_icp_rate = s.last_icp_rate.unwrap_or(UsdIcp::from(dec!(0.0)));
+        
+        if current_icp_rate.to_f64() == 0.0 {
+            return vec![];
+        }
+        
+        s.vault_id_to_vaults
+            .values()
+            .filter(|vault| {
+                let ratio = rumi_protocol_backend::compute_collateral_ratio(vault, current_icp_rate);
+                ratio < s.mode.get_minimum_liquidation_collateral_ratio()
+            })
+            .map(|vault| {
+                let collateral_ratio = rumi_protocol_backend::compute_collateral_ratio(vault, current_icp_rate);
+                CandidVault {
+                    owner: vault.owner,
+                    borrowed_icusd_amount: vault.borrowed_icusd_amount.to_u64(),
+                    icp_margin_amount: vault.icp_margin_amount.to_u64(),
+                    vault_id: vault.vault_id,
+                }
+            })
+            .collect::<Vec<CandidVault>>()
+    })
+}
+
+
+// Liquidity related operations
 #[candid_method(update)]
 #[update]
 async fn provide_liquidity(amount: u64) -> Result<u64, ProtocolError> {
@@ -504,6 +561,67 @@ fn http_request(req: HttpRequest) -> HttpResponse {
             .build()
     } else {
         HttpResponseBuilder::not_found().build()
+    }
+}
+
+// Add a new heartbeat function to routinely clean up stale operations
+#[ic_cdk::heartbeat]
+fn heartbeat() {
+    use rumi_protocol_backend::state::mutate_state;
+    log!(INFO, "[heartbeat] Running scheduled cleanup tasks");
+    
+    // Clean up any stale operations
+    mutate_state(|s| s.clean_stale_operations());
+}
+
+#[candid_method(update)]
+#[update]
+async fn recover_pending_transfer(vault_id: u64) -> Result<bool, ProtocolError> {
+    let caller = ic_cdk::caller();
+    
+    // Validate the caller is the owner of this pending transfer
+    let is_owner = read_state(|s| {
+        s.pending_margin_transfers
+            .get(&vault_id)
+            .map(|transfer| transfer.owner == caller)
+            .unwrap_or(false)
+    });
+    
+    if !is_owner {
+        return Err(ProtocolError::CallerNotOwner);
+    }
+    
+    // Process the pending transfer immediately
+    let transfer_opt = read_state(|s| {
+        s.pending_margin_transfers.get(&vault_id).cloned()
+    });
+    
+    if let Some(transfer) = transfer_opt {
+        let icp_transfer_fee = read_state(|s| s.icp_ledger_fee);
+        
+        match crate::management::transfer_icp(
+            transfer.margin - icp_transfer_fee,
+            transfer.owner,
+        )
+        .await
+        {
+            Ok(block_index) => {
+                mutate_state(|s| crate::event::record_margin_transfer(s, vault_id, block_index));
+                Ok(true)
+            }
+            Err(error) => {
+                log!(
+                    DEBUG,
+                    "[recover_pending_transfer] failed to transfer margin: {}, with error: {}",
+                    transfer.margin,
+                    error
+                );
+                Err(ProtocolError::TransferError(error))
+            }
+        }
+    } else {
+        // No pending transfer found for this vault
+        Err(ProtocolError::GenericError("No pending transfer found for this vault".to_string()))
     }
 }
 

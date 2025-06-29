@@ -59,6 +59,11 @@ type Event = variant {
     icp_rate : vec nat8;
     vault_id : nat64;
   };
+  withdraw_and_close_vault : record {
+    vault_id : nat64;
+    amount : nat64;
+    block_index : opt nat64;
+  };
 };
 type LiquidityStatus = record {
   liquidity_provided : nat64;
@@ -118,6 +123,12 @@ type Vault = record {
   icp_margin_amount : nat64;
   borrowed_icusd_amount : nat64;
 };
+type CandidVault = record {
+  owner : principal;
+  borrowed_icusd_amount : nat64;
+  icp_margin_amount : nat64;
+  vault_id : nat64;
+};
 type SuccessWithFee = record { block_index : nat64; fee_amount_paid : nat64 };
 type VaultArg = record { vault_id : nat64; amount : nat64 };
 
@@ -156,8 +167,14 @@ service : (ProtocolArg) -> {
   get_vaults : (opt principal) -> (vec Vault) query;
   get_vault_history : (nat64) -> (vec Event) query;
   get_events : (GetEventsArg) -> (vec Event) query;
-  get_redemption_rate : () -> (float64) query;  // Added missing method
+  get_redemption_rate : () -> (float64) query;  
+  get_liquidatable_vaults : () -> (vec CandidVault) query;
 
   // Add HTTP endpoint
   http_request : (HttpRequest) -> (HttpResponse) query;
+  
+  // Add new endpoint for withdrawing collateral
+  withdraw_collateral : (nat64) -> (variant { Ok : nat64; Err : ProtocolError });
+  withdraw_and_close_vault: (nat64) -> (variant { Ok: opt nat64; Err: ProtocolError });
+  liquidate_vault : (nat64) -> (variant { Ok : SuccessWithFee; Err : ProtocolError });
 }

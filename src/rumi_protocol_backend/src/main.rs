@@ -5,9 +5,9 @@ use ic_cdk_macros::{init, post_upgrade, query, update};
 use rumi_protocol_backend::{
     event::Event,
     logs::INFO,
-    numeric::{ICUSD, UsdIcp},
+    numeric::{ICUSD, UsdIcp, UsdCkBtc},
     state::{read_state, replace_state, Mode, State},
-    vault::{CandidVault, OpenVaultSuccess, VaultArg},
+    vault::{CandidVault, OpenVaultSuccess, VaultArg, CollateralType},
     Fees, GetEventsArg, ProtocolArg, ProtocolError, ProtocolStatus, SuccessWithFee,
 };
 use rumi_protocol_backend::logs::DEBUG;
@@ -22,7 +22,6 @@ use rumi_protocol_backend::storage::events;
 use rumi_protocol_backend::LiquidityStatus;
 use candid_parser::utils::CandidSource;
 use candid_parser::utils::service_equal;
-
 
 #[cfg(feature = "self_check")]
 fn ok_or_die(result: Result<(), String>) {
@@ -81,8 +80,14 @@ fn validate_mode() -> Result<(), ProtocolError> {
 }
 
 fn setup_timers() {
+    // Existing ICP rate fetching timer
     ic_cdk_timers::set_timer_interval(rumi_protocol_backend::xrc::FETCHING_ICP_RATE_INTERVAL, || {
         ic_cdk::spawn(rumi_protocol_backend::xrc::fetch_icp_rate())
+    });
+    
+    // New ckBTC rate fetching timer
+    ic_cdk_timers::set_timer_interval(rumi_protocol_backend::xrc::FETCHING_CKBTC_RATE_INTERVAL, || {
+        ic_cdk::spawn(rumi_protocol_backend::xrc::fetch_ckbtc_rate())
     });
 }
 
@@ -156,7 +161,13 @@ fn get_protocol_status() -> ProtocolStatus {
             .unwrap_or(UsdIcp::from(Decimal::ZERO))
             .to_f64(),
         last_icp_timestamp: s.last_icp_timestamp.unwrap_or(0),
+        last_ckbtc_rate: s
+            .last_ckbtc_rate
+            .unwrap_or(UsdCkBtc::from(Decimal::ZERO))
+            .to_f64(),
+        last_ckbtc_timestamp: s.last_ckbtc_timestamp.unwrap_or(0),
         total_icp_margin: s.total_icp_margin_amount().to_u64(),
+        total_ckbtc_margin: s.total_ckbtc_margin_amount().to_u64(),
         total_icusd_borrowed: s.total_borrowed_icusd_amount().to_u64(),
         total_collateral_ratio: s.total_collateral_ratio.to_f64(),
         mode: s.mode,
@@ -235,7 +246,9 @@ fn get_vaults(target: Option<Principal>) -> Vec<CandidVault> {
                         owner: vault.owner,
                         borrowed_icusd_amount: vault.borrowed_icusd_amount.to_u64(),
                         icp_margin_amount: vault.icp_margin_amount.to_u64(),
+                        ckbtc_margin_amount: vault.ckbtc_margin_amount.to_u64(),
                         vault_id: vault.vault_id,
+                        collateral_type: vault.collateral_type,
                     }
                 })
                 .collect(),
@@ -248,7 +261,9 @@ fn get_vaults(target: Option<Principal>) -> Vec<CandidVault> {
                     owner: vault.owner,
                     borrowed_icusd_amount: vault.borrowed_icusd_amount.to_u64(),
                     icp_margin_amount: vault.icp_margin_amount.to_u64(),
+                    ckbtc_margin_amount: vault.ckbtc_margin_amount.to_u64(),
                     vault_id: vault.vault_id,
+                    collateral_type: vault.collateral_type,
                 })
                 .collect::<Vec<CandidVault>>()
         }),
@@ -275,9 +290,9 @@ fn get_redemption_rate() -> f64 {
 
 #[candid_method(update)]
 #[update]
-async fn open_vault(icp_margin: u64) -> Result<OpenVaultSuccess, ProtocolError> {
+async fn open_vault(collateral_amount: u64, collateral_type: CollateralType) -> Result<OpenVaultSuccess, ProtocolError> {
     validate_call()?;
-    check_postcondition(rumi_protocol_backend::vault::open_vault(icp_margin).await)
+    check_postcondition(rumi_protocol_backend::vault::open_vault(collateral_amount, collateral_type).await)
 }
 
 #[candid_method(update)]
@@ -338,30 +353,44 @@ async fn liquidate_vault(vault_id: u64) -> Result<SuccessWithFee, ProtocolError>
 fn get_liquidatable_vaults() -> Vec<CandidVault> {
     read_state(|s| {
         let current_icp_rate = s.last_icp_rate.unwrap_or(UsdIcp::from(dec!(0.0)));
+        let current_ckbtc_rate = s.last_ckbtc_rate.unwrap_or(UsdCkBtc::from(dec!(0.0)));
         
-        if current_icp_rate.to_f64() == 0.0 {
+        if current_icp_rate.to_f64() == 0.0 && current_ckbtc_rate.to_f64() == 0.0 {
             return vec![];
         }
         
         s.vault_id_to_vaults
             .values()
             .filter(|vault| {
-                let ratio = rumi_protocol_backend::compute_collateral_ratio(vault, current_icp_rate);
+                let ratio = match vault.collateral_type {
+                    CollateralType::ICP => {
+                        if current_icp_rate.to_f64() == 0.0 { return false; }
+                        rumi_protocol_backend::compute_collateral_ratio(vault, current_icp_rate, CollateralType::ICP)
+                    },
+                    CollateralType::CkBTC => {
+                        if current_ckbtc_rate.to_f64() == 0.0 { return false; }
+                        rumi_protocol_backend::compute_collateral_ratio(vault, current_ckbtc_rate, CollateralType::CkBTC)
+                    }
+                };
                 ratio < s.mode.get_minimum_liquidation_collateral_ratio()
             })
             .map(|vault| {
-                let collateral_ratio = rumi_protocol_backend::compute_collateral_ratio(vault, current_icp_rate);
+                let collateral_ratio = match vault.collateral_type {
+                    CollateralType::ICP => rumi_protocol_backend::compute_collateral_ratio(vault, current_icp_rate, CollateralType::ICP),
+                    CollateralType::CkBTC => rumi_protocol_backend::compute_collateral_ratio(vault, current_ckbtc_rate, CollateralType::CkBTC),
+                };
                 CandidVault {
                     owner: vault.owner,
                     borrowed_icusd_amount: vault.borrowed_icusd_amount.to_u64(),
                     icp_margin_amount: vault.icp_margin_amount.to_u64(),
+                    ckbtc_margin_amount: vault.ckbtc_margin_amount.to_u64(),
                     vault_id: vault.vault_id,
+                    collateral_type: vault.collateral_type,
                 }
             })
             .collect::<Vec<CandidVault>>()
     })
 }
-
 
 // Liquidity related operations
 #[candid_method(update)]
@@ -457,7 +486,17 @@ fn http_request(req: HttpRequest) -> HttpResponse {
                     "ICP rate.",
                 )?;
 
+                w.encode_gauge(
+                    "rumi_ckbtc_rate",
+                    s.last_ckbtc_rate.unwrap_or(UsdCkBtc::from(dec!(0))).to_f64(),
+                    "ckBTC rate.",
+                )?;
+
                 let total_icp_dec = Decimal::from_u64(s.total_icp_margin_amount().0)
+                    .expect("failed to construct decimal from u64")
+                    / dec!(100_000_000);
+
+                let total_ckbtc_dec = Decimal::from_u64(s.total_ckbtc_margin_amount().0)
                     .expect("failed to construct decimal from u64")
                     / dec!(100_000_000);
 
@@ -468,10 +507,17 @@ fn http_request(req: HttpRequest) -> HttpResponse {
                 )?;
 
                 w.encode_gauge(
-                    "ICP_total_tvl",
-                    (total_icp_dec * s.last_icp_rate.unwrap_or(UsdIcp::from(dec!(0))).0)
-                        .to_f64()
-                        .unwrap(),
+                    "ckbtc_total_CKBTC_margin",
+                    total_ckbtc_dec.to_f64().unwrap(),
+                    "Total ckBTC Margin.",
+                )?;
+
+                let total_tvl = (total_icp_dec * s.last_icp_rate.unwrap_or(UsdIcp::from(dec!(0))).0)
+                    + (total_ckbtc_dec * s.last_ckbtc_rate.unwrap_or(UsdCkBtc::from(dec!(0))).0);
+
+                w.encode_gauge(
+                    "total_tvl",
+                    total_tvl.to_f64().unwrap(),
                     "Total TVL.",
                 )?;
 
@@ -486,7 +532,7 @@ fn http_request(req: HttpRequest) -> HttpResponse {
                 )?;
 
                 w.encode_gauge(
-                    "ICP_total_collateral_ratio",
+                    "total_collateral_ratio",
                     s.total_collateral_ratio.to_f64(),
                     "TCR.",
                 )?;
@@ -597,14 +643,27 @@ async fn recover_pending_transfer(vault_id: u64) -> Result<bool, ProtocolError> 
     });
     
     if let Some(transfer) = transfer_opt {
-        let icp_transfer_fee = read_state(|s| s.icp_ledger_fee);
+        let transfer_fee = match transfer.collateral_type {
+            CollateralType::ICP => read_state(|s| s.icp_ledger_fee),
+            CollateralType::CkBTC => read_state(|s| s.ckbtc_ledger_fee),
+        };
         
-        match crate::management::transfer_icp(
-            transfer.margin - icp_transfer_fee,
-            transfer.owner,
-        )
-        .await
-        {
+        let result = match transfer.collateral_type {
+            CollateralType::ICP => {
+                crate::management::transfer_icp(
+                    transfer.margin - transfer_fee,
+                    transfer.owner,
+                ).await
+            },
+            CollateralType::CkBTC => {
+                crate::management::transfer_ckbtc(
+                    transfer.margin - transfer_fee,
+                    transfer.owner,
+                ).await
+            }
+        };
+        
+        match result {
             Ok(block_index) => {
                 mutate_state(|s| crate::event::record_margin_transfer(s, vault_id, block_index));
                 Ok(true)
@@ -637,7 +696,6 @@ fn check_candid_interface_compatibility() {
         }
     }
     
-
     fn check_service_compatible(
         new_name: &str,
         new: CandidSource,

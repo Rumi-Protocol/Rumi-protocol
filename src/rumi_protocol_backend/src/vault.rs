@@ -97,6 +97,15 @@ pub async fn redeem_icp(_icusd_amount: u64) -> Result<SuccessWithFee, ProtocolEr
             ic_cdk_timers::set_timer(std::time::Duration::from_secs(0), || {
                 ic_cdk::spawn(crate::process_pending_transfer())
             });
+            
+            // Schedule redemption fee routing (async - don't block on failure)
+            if fee_amount.to_u64() > 0 {
+                let fee_u64 = fee_amount.to_u64();
+                ic_cdk_timers::set_timer(std::time::Duration::from_secs(1), move || {
+                    ic_cdk::spawn(route_redemption_fee_to_treasury(fee_u64, block_index));
+                });
+            }
+            
             Ok(SuccessWithFee {
                 block_index,
                 fee_amount_paid: fee_amount.to_u64(),
@@ -246,6 +255,19 @@ pub async fn borrow_from_vault(arg: VaultArg) -> Result<SuccessWithFee, Protocol
             mutate_state(|s| {
                 record_borrow_from_vault(s, arg.vault_id, amount, fee, block_index);
             });
+            
+            // Schedule treasury fee routing (async - don't block on failure)
+            if fee.to_u64() > 0 {
+                let vault_id = arg.vault_id;
+                let fee_amount = fee.to_u64();
+                ic_cdk_timers::set_timer(std::time::Duration::from_secs(0), move || {
+                    ic_cdk::spawn(route_minting_fee_to_treasury(
+                        vault_id,
+                        fee_amount,
+                        block_index
+                    ));
+                });
+            }
             
             guard_principal.complete();
             
@@ -926,4 +948,107 @@ fn schedule_transfer_retry(vault_id: u64, retry_count: u32) {
             }
         })
     });
+}
+
+// Treasury integration functions
+
+async fn route_minting_fee_to_treasury(
+    vault_id: u64,
+    fee_amount: u64,
+    block_index: u64
+) {
+    let treasury_principal = read_state(|s| s.treasury_principal);
+    
+    if let Some(treasury_principal) = treasury_principal {
+        let deposit_args = crate::state::TreasuryDepositArgs {
+            deposit_type: crate::state::TreasuryFeeType::MintingFee,
+            asset_type: crate::state::TreasuryAssetType::ICUSD,
+            amount: fee_amount,
+            block_index,
+            memo: Some(format!("Minting fee from vault {}", vault_id)),
+        };
+        
+        let call_result: Result<(Result<u64, String>,), _> = ic_cdk::call(
+            treasury_principal,
+            "deposit",
+            (deposit_args,),
+        ).await;
+
+        match call_result {
+            Ok((Ok(_deposit_id),)) => {
+                log!(
+                    INFO,
+                    "[treasury] Minting fee {} icUSD from vault {} routed to treasury", 
+                    fee_amount, vault_id
+                );
+            }
+            Ok((Err(err),)) => {
+                log!(
+                    DEBUG,
+                    "[treasury] Treasury deposit failed for vault {}: {}", 
+                    vault_id, err
+                );
+            }
+            Err(call_err) => {
+                log!(
+                    DEBUG,
+                    "[treasury] Failed to call treasury for vault {}: {:?}", 
+                    vault_id, call_err
+                );
+            }
+        }
+    } else {
+        log!(
+            INFO,
+            "[treasury] No treasury configured, minting fee {} from vault {} not routed",
+            fee_amount, vault_id
+        );
+    }
+}
+
+async fn route_redemption_fee_to_treasury(
+    fee_amount: u64,
+    block_index: u64
+) {
+    let treasury_principal = read_state(|s| s.treasury_principal);
+    
+    if let Some(treasury_principal) = treasury_principal {
+        let deposit_args = crate::state::TreasuryDepositArgs {
+            deposit_type: crate::state::TreasuryFeeType::RedemptionFee,
+            asset_type: crate::state::TreasuryAssetType::ICUSD,
+            amount: fee_amount,
+            block_index,
+            memo: Some("Redemption fee".to_string()),
+        };
+        
+        let call_result: Result<(Result<u64, String>,), _> = ic_cdk::call(
+            treasury_principal,
+            "deposit",
+            (deposit_args,),
+        ).await;
+
+        match call_result {
+            Ok((Ok(_deposit_id),)) => {
+                log!(
+                    INFO,
+                    "[treasury] Redemption fee {} icUSD routed to treasury", 
+                    fee_amount
+                );
+            }
+            Ok((Err(err),)) => {
+                log!(
+                    DEBUG,
+                    "[treasury] Treasury deposit failed for redemption fee: {}", 
+                    err
+                );
+            }
+            Err(call_err) => {
+                log!(
+                    DEBUG,
+                    "[treasury] Failed to call treasury for redemption fee: {:?}", 
+                    call_err
+                );
+            }
+        }
+    }
 }

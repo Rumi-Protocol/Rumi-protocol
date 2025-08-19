@@ -29,7 +29,7 @@ version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "891477e0c6a8957309ee5c45a6368af3ae14bb510732d2684ffa19af310920f9"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.15",
  "once_cell",
  "version_check",
 ]
@@ -41,7 +41,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if 1.0.0",
- "getrandom",
+ "getrandom 0.2.15",
  "once_cell",
  "version_check",
  "zerocopy",
@@ -186,6 +186,15 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
+name = "ascii-canvas"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8824ecca2e851cec16968d54a01dd372ef8f95b244fb84b84e70128be347c3c6"
+dependencies = [
+ "term",
+]
 
 [[package]]
 name = "askama"
@@ -406,7 +415,7 @@ dependencies = [
  "miniz_oxide",
  "object",
  "rustc-demangle",
- "windows-targets",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -447,6 +456,12 @@ checksum = "823388e228f614e9558c6804262db37960ec8821856535f5c3f59913140558f8"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "beef"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
 
 [[package]]
 name = "bincode"
@@ -517,6 +532,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "bit-set"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0700ddab506f33b20a03b13996eccd309a48e5ff77d0d95926aa0210fb4e95f1"
+dependencies = [
+ "bit-vec 0.6.3",
 ]
 
 [[package]]
@@ -735,6 +759,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "candid_parser"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48a3da76f989cd350b7342c64c6c6008341bb6186f6832ef04e56dc50ba0fd76"
+dependencies = [
+ "anyhow",
+ "candid",
+ "codespan-reporting",
+ "convert_case 0.6.0",
+ "hex",
+ "lalrpop",
+ "lalrpop-util",
+ "logos",
+ "num-bigint 0.4.6",
+ "pretty",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -788,7 +831,7 @@ dependencies = [
  "iana-time-zone",
  "num-traits",
  "serde",
- "windows-targets",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -874,6 +917,16 @@ name = "cobs"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67ba02a97a2bd10f4b59b25c7973101c79642302776489e030cd13cdab09ed15"
+
+[[package]]
+name = "codespan-reporting"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
+dependencies = [
+ "termcolor",
+ "unicode-width 0.1.14",
+]
 
 [[package]]
 name = "colorchoice"
@@ -1193,7 +1246,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0dc92fb57ca44df6db8059111ab3af99a63d5d0f8375d9972e319a379c6bab76"
 dependencies = [
  "generic-array",
- "rand_core",
+ "rand_core 0.6.4",
  "subtle",
  "zeroize",
 ]
@@ -1220,7 +1273,7 @@ dependencies = [
  "digest",
  "fiat-crypto",
  "group",
- "rand_core",
+ "rand_core 0.6.4",
  "rustc_version",
  "subtle",
  "zeroize",
@@ -1353,11 +1406,11 @@ dependencies = [
 [[package]]
 name = "dfn_candid"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "dfn_core",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "on_wire",
  "serde",
 ]
@@ -1365,9 +1418,9 @@ dependencies = [
 [[package]]
 name = "dfn_core"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "on_wire",
 ]
 
@@ -1428,6 +1481,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
+
+[[package]]
 name = "ecdsa"
 version = "0.16.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1460,7 +1519,7 @@ dependencies = [
  "curve25519-dalek",
  "ed25519",
  "merlin",
- "rand_core",
+ "rand_core 0.6.4",
  "serde",
  "sha2",
  "signature",
@@ -1500,7 +1559,7 @@ dependencies = [
  "group",
  "pem-rfc7468",
  "pkcs8",
- "rand_core",
+ "rand_core 0.6.4",
  "sec1",
  "subtle",
  "zeroize",
@@ -1517,6 +1576,15 @@ name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
+name = "ena"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d248bdd43ce613d87415282f69b9bb99d947d290b10962dd6c56233312c2ad5"
+dependencies = [
+ "log",
+]
 
 [[package]]
 name = "enum-ordinalize"
@@ -1622,7 +1690,7 @@ checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 [[package]]
 name = "fe-derive"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "num-bigint-dig",
@@ -1638,7 +1706,7 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
 dependencies = [
- "rand_core",
+ "rand_core 0.6.4",
  "subtle",
 ]
 
@@ -1816,8 +1884,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
- "wasi",
+ "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "getrandom"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26145e563e54f2cadc477553f1ec5ee650b00862f0a58bcd12cbdc5f0ea2d2f4"
+dependencies = [
+ "cfg-if 1.0.0",
+ "js-sys",
+ "libc",
+ "r-efi",
+ "wasi 0.14.2+wasi-0.2.4",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1844,7 +1928,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0f9ef7462f7c099f518d754361858f86d8a07af53ba9af0fe635bbccb151a63"
 dependencies = [
  "ff",
- "rand_core",
+ "rand_core 0.6.4",
  "subtle",
 ]
 
@@ -2081,6 +2165,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tower-service",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -2141,7 +2226,7 @@ dependencies = [
 [[package]]
 name = "ic-adapter-metrics-client"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hyper-util",
  "ic-adapter-metrics-service",
@@ -2157,7 +2242,7 @@ dependencies = [
 [[package]]
 name = "ic-adapter-metrics-server"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "futures",
  "ic-adapter-metrics-service",
@@ -2172,7 +2257,7 @@ dependencies = [
 [[package]]
 name = "ic-adapter-metrics-service"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "prost 0.13.4",
  "prost-build 0.13.4",
@@ -2183,7 +2268,7 @@ dependencies = [
 [[package]]
 name = "ic-artifact-pool"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2192,7 +2277,7 @@ dependencies = [
  "ic-interfaces",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-sys",
  "ic-types",
  "lmdb-rkv",
@@ -2212,35 +2297,16 @@ dependencies = [
 [[package]]
 name = "ic-base-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "byte-unit",
  "bytes",
  "candid",
  "comparable",
  "hex",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/dfinity/ic)",
- "phantom_newtype 0.9.0 (git+https://github.com/dfinity/ic)",
- "prost 0.13.4",
- "serde",
- "strum",
- "strum_macros",
-]
-
-[[package]]
-name = "ic-base-types"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
-dependencies = [
- "byte-unit",
- "bytes",
- "candid",
- "comparable",
- "hex",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
+ "ic-protobuf",
+ "phantom_newtype",
  "prost 0.13.4",
  "serde",
  "strum",
@@ -2250,11 +2316,11 @@ dependencies = [
 [[package]]
 name = "ic-btc-adapter-client"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hyper-util",
  "ic-adapter-metrics-client",
- "ic-btc-replica-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-btc-replica-types",
  "ic-btc-service",
  "ic-config",
  "ic-http-endpoints-async-utils",
@@ -2274,19 +2340,19 @@ dependencies = [
 [[package]]
 name = "ic-btc-consensus"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-btc-interface",
- "ic-btc-replica-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-btc-replica-types",
  "ic-config",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-interfaces",
  "ic-interfaces-adapter-client",
  "ic-interfaces-registry",
  "ic-interfaces-state-manager",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-helpers",
  "ic-registry-subnet-features",
  "ic-replicated-state",
@@ -2311,25 +2377,12 @@ dependencies = [
 [[package]]
 name = "ic-btc-replica-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "ic-btc-interface",
- "ic-error-types 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/dfinity/ic)",
- "serde",
- "serde_bytes",
-]
-
-[[package]]
-name = "ic-btc-replica-types"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
-dependencies = [
- "candid",
- "ic-btc-interface",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
+ "ic-protobuf",
  "serde",
  "serde_bytes",
 ]
@@ -2337,7 +2390,7 @@ dependencies = [
 [[package]]
 name = "ic-btc-service"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "prost 0.13.4",
  "tonic",
@@ -2347,20 +2400,21 @@ dependencies = [
 [[package]]
 name = "ic-canister-client-sender"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-crypto-ed25519",
  "ic-crypto-secp256k1",
  "ic-types",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
 ]
 
 [[package]]
 name = "ic-canister-log"
 version = "0.2.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb82c4f617ecff6e452fe65af0489626ec7330ffe3eedd9ea14e6178eea48d1a"
 dependencies = [
  "serde",
 ]
@@ -2368,7 +2422,7 @@ dependencies = [
 [[package]]
 name = "ic-canister-log"
 version = "0.2.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "serde",
 ]
@@ -2376,18 +2430,18 @@ dependencies = [
 [[package]]
 name = "ic-canister-sandbox-backend-lib"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "bincode",
  "bytes",
  "cc",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-config",
  "ic-cycles-account-manager",
  "ic-embedders",
  "ic-interfaces",
  "ic-interfaces-state-manager",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
  "ic-metrics",
  "ic-registry-subnet-type",
@@ -2395,7 +2449,7 @@ dependencies = [
  "ic-sys",
  "ic-system-api",
  "ic-types",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-utils",
  "ic-wasm-types",
  "lazy_static",
  "libc",
@@ -2418,7 +2472,7 @@ dependencies = [
 [[package]]
 name = "ic-canisters-http-types"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "dfn_candid",
@@ -2429,20 +2483,20 @@ dependencies = [
 [[package]]
 name = "ic-canonical-state"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-canonical-state-tree-hash",
  "ic-certification-version",
  "ic-crypto-tree-hash",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
+ "ic-protobuf",
  "ic-registry-routing-table",
  "ic-registry-subnet-type",
  "ic-replicated-state",
  "ic-types",
  "leb128",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "serde",
  "serde_bytes",
  "serde_cbor",
@@ -2453,7 +2507,7 @@ dependencies = [
 [[package]]
 name = "ic-canonical-state-tree-hash"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-tree-hash",
  "itertools 0.12.1",
@@ -2477,6 +2531,20 @@ dependencies = [
 
 [[package]]
 name = "ic-cdk"
+version = "0.13.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36c4f1eea1e5ca52801fbc8363cfb67c3218741afaa63fc001b80a0d283d60ca"
+dependencies = [
+ "candid",
+ "ic-cdk-executor",
+ "ic-cdk-macros 0.13.2",
+ "ic0 0.23.0",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
+name = "ic-cdk"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8ecacd682fa05a985253592963306cb9799622d7b1cce4b1edb89c6ec85be1"
@@ -2487,6 +2555,12 @@ dependencies = [
  "serde",
  "serde_bytes",
 ]
+
+[[package]]
+name = "ic-cdk-executor"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "903057edd3d4ff4b3fe44a64eaee1ceb73f579ba29e3ded372b63d291d7c16c2"
 
 [[package]]
 name = "ic-cdk-macros"
@@ -2518,6 +2592,20 @@ dependencies = [
 
 [[package]]
 name = "ic-cdk-macros"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a45800053d80a6df839a71aaea5797e723188c0b992618208ca3b941350c7355"
+dependencies = [
+ "candid",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_tokenstream 0.1.7",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "ic-cdk-macros"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d4d857135deef20cc7ea8f3869a30cd9cfeb1392b3a81043790b2cd82adc3e0"
@@ -2528,6 +2616,20 @@ dependencies = [
  "serde",
  "serde_tokenstream 0.2.2",
  "syn 2.0.96",
+]
+
+[[package]]
+name = "ic-cdk-timers"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "054727a3a1c486528b96349817d54290ff70df6addf417def456ea708a16f7fb"
+dependencies = [
+ "futures",
+ "ic-cdk 0.13.6",
+ "ic0 0.21.1",
+ "serde",
+ "serde_bytes",
+ "slotmap",
 ]
 
 [[package]]
@@ -2547,7 +2649,7 @@ dependencies = [
 [[package]]
 name = "ic-certification"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "ic-crypto-tree-hash",
@@ -2560,9 +2662,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "ic-certification"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e64ee3d8b6e81b51f245716d3e0badb63c283c00f3c9fb5d5219afc30b5bf821"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_bytes",
+ "sha2",
+]
+
+[[package]]
+name = "ic-certification"
+version = "3.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffb40d73f9f8273dc6569a68859003bbd467c9dc6d53c6fd7d174742f857209d"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_bytes",
+ "sha2",
+]
+
+[[package]]
 name = "ic-certification-version"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "strum",
  "strum_macros",
@@ -2571,10 +2697,10 @@ dependencies = [
 [[package]]
 name = "ic-config"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
+ "ic-protobuf",
  "ic-registry-subnet-type",
  "ic-sys",
  "ic-types",
@@ -2586,7 +2712,7 @@ dependencies = [
 [[package]]
 name = "ic-consensus"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-config",
  "ic-consensus-dkg",
@@ -2595,26 +2721,26 @@ dependencies = [
  "ic-crypto-prng",
  "ic-crypto-test-utils-canister-threshold-sigs",
  "ic-crypto-utils-threshold-sig-der",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-https-outcalls-consensus",
  "ic-interfaces",
  "ic-interfaces-registry",
  "ic-interfaces-state-manager",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-helpers",
  "ic-registry-subnet-features",
  "ic-registry-subnet-type",
  "ic-replicated-state",
  "ic-types",
  "num-traits",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "prometheus",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "slog",
  "strum_macros",
  "tokio",
@@ -2623,7 +2749,7 @@ dependencies = [
 [[package]]
 name = "ic-consensus-dkg"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-consensus-utils",
  "ic-interfaces",
@@ -2631,7 +2757,7 @@ dependencies = [
  "ic-interfaces-state-manager",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-helpers",
  "ic-replicated-state",
  "ic-types",
@@ -2643,33 +2769,33 @@ dependencies = [
 [[package]]
 name = "ic-consensus-utils"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-prng",
  "ic-interfaces",
  "ic-interfaces-registry",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-helpers",
  "ic-replicated-state",
  "ic-types",
  "prometheus",
- "rand",
+ "rand 0.8.5",
  "slog",
 ]
 
 [[package]]
 name = "ic-crypto"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "async-trait",
  "bincode",
  "clap",
  "hex",
  "ic-adapter-metrics-server",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-config",
  "ic-crypto-ecdsa-secp256r1",
  "ic-crypto-ed25519",
@@ -2691,9 +2817,9 @@ dependencies = [
  "ic-interfaces",
  "ic-interfaces-registry",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-helpers",
  "ic-registry-keys",
  "ic-types",
@@ -2710,15 +2836,15 @@ dependencies = [
 [[package]]
 name = "ic-crypto-ecdsa-secp256r1"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hmac",
  "lazy_static",
  "num-bigint 0.4.6",
  "p256",
  "pem 1.1.1",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "sha2",
  "simple_asn1",
  "zeroize",
@@ -2727,13 +2853,13 @@ dependencies = [
 [[package]]
 name = "ic-crypto-ed25519"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "curve25519-dalek",
  "ed25519-dalek",
  "hkdf",
  "pem 1.1.1",
- "rand",
+ "rand 0.8.5",
  "thiserror 2.0.11",
  "zeroize",
 ]
@@ -2741,7 +2867,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-iccsa"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-basic-sig-iccsa",
 ]
@@ -2749,7 +2875,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-interfaces-sig-verification"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-types",
 ]
@@ -2757,7 +2883,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-basic-sig-cose"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-basic-sig-der-utils",
  "ic-crypto-internal-basic-sig-ecdsa-secp256r1",
@@ -2771,7 +2897,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-basic-sig-der-utils"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "ic-types",
@@ -2781,7 +2907,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-basic-sig-ecdsa-secp256k1"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "ic-crypto-internal-basic-sig-der-utils",
@@ -2798,7 +2924,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-basic-sig-ecdsa-secp256r1"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "ic-crypto-ecdsa-secp256r1",
@@ -2807,7 +2933,7 @@ dependencies = [
  "ic-crypto-secrets-containers",
  "ic-types",
  "p256",
- "rand",
+ "rand 0.8.5",
  "serde",
  "serde_bytes",
  "simple_asn1",
@@ -2817,7 +2943,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-basic-sig-ed25519"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "curve25519-dalek",
@@ -2827,10 +2953,10 @@ dependencies = [
  "ic-crypto-internal-seed",
  "ic-crypto-internal-types",
  "ic-crypto-secrets-containers",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-types",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "serde",
  "simple_asn1",
  "zeroize",
@@ -2839,14 +2965,14 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-basic-sig-iccsa"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "hex",
- "ic-certification",
+ "ic-certification 0.9.0",
  "ic-crypto-internal-basic-sig-der-utils",
  "ic-crypto-internal-types",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-crypto-tree-hash",
  "ic-types",
  "serde",
@@ -2858,10 +2984,10 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-basic-sig-rsa-pkcs1"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-basic-sig-der-utils",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-types",
  "num-bigint 0.4.6",
  "num-traits",
@@ -2875,7 +3001,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-bls12-381-type"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "ic_bls12_381",
@@ -2883,8 +3009,8 @@ dependencies = [
  "lazy_static",
  "pairing",
  "paste",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "sha2",
  "subtle",
  "zeroize",
@@ -2893,18 +3019,18 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-bls12-381-vetkd"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-bls12-381-type",
  "ic-sha3",
- "rand",
+ "rand 0.8.5",
  "zeroize",
 ]
 
 [[package]]
 name = "ic-crypto-internal-csp"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "bincode",
@@ -2929,19 +3055,19 @@ dependencies = [
  "ic-crypto-internal-types",
  "ic-crypto-node-key-validation",
  "ic-crypto-secrets-containers",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-crypto-standalone-sig-verifier",
  "ic-crypto-tls-interfaces",
  "ic-interfaces",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-sys",
  "ic-types",
  "parking_lot",
  "prost 0.13.4",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rayon",
  "serde",
  "serde_bytes",
@@ -2965,15 +3091,15 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-hmac"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-crypto-internal-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-internal-sha2",
 ]
 
 [[package]]
 name = "ic-crypto-internal-logmon"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-metrics",
  "prometheus",
@@ -2984,18 +3110,18 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-multi-sig-bls12381"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "hex",
  "ic-crypto-internal-bls12-381-type",
  "ic-crypto-internal-types",
  "ic-crypto-secrets-containers",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
+ "ic-protobuf",
  "ic-types",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "serde",
  "zeroize",
 ]
@@ -3003,12 +3129,12 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-seed"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "rand",
- "rand_chacha",
+ "ic-crypto-sha2",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "serde",
  "zeroize",
 ]
@@ -3016,15 +3142,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-sha2"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
-dependencies = [
- "sha2",
-]
-
-[[package]]
-name = "ic-crypto-internal-sha2"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "sha2",
 ]
@@ -3032,7 +3150,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-test-vectors"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "strum",
@@ -3042,7 +3160,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-threshold-sig-bls12381"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "cached",
@@ -3051,12 +3169,12 @@ dependencies = [
  "ic-crypto-internal-seed",
  "ic-crypto-internal-types",
  "ic-crypto-secrets-containers",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-types",
  "lazy_static",
  "parking_lot",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "serde",
  "serde_bytes",
  "serde_cbor",
@@ -3068,7 +3186,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-threshold-sig-canister-threshold-sig"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "curve25519-dalek",
  "fe-derive",
@@ -3079,13 +3197,13 @@ dependencies = [
  "ic-crypto-internal-seed",
  "ic-crypto-internal-types",
  "ic-crypto-secrets-containers",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-types",
  "k256",
  "lazy_static",
  "p256",
  "paste",
- "rand",
+ "rand 0.8.5",
  "serde",
  "serde_bytes",
  "serde_cbor",
@@ -3098,12 +3216,12 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-tls"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-basic-sig-ed25519",
  "ic-crypto-secrets-containers",
  "ic-types",
- "rand",
+ "rand 0.8.5",
  "rcgen",
  "serde",
  "time",
@@ -3113,12 +3231,12 @@ dependencies = [
 [[package]]
 name = "ic-crypto-internal-types"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "arrayvec 0.7.6",
  "hex",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
+ "phantom_newtype",
  "serde",
  "serde_cbor",
  "strum",
@@ -3130,7 +3248,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-node-key-generation"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-config",
  "ic-crypto-internal-csp",
@@ -3142,7 +3260,7 @@ dependencies = [
  "ic-crypto-utils-basic-sig",
  "ic-interfaces",
  "ic-logger",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-types",
  "tokio",
 ]
@@ -3150,17 +3268,17 @@ dependencies = [
 [[package]]
 name = "ic-crypto-node-key-validation"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-crypto-internal-basic-sig-ed25519",
  "ic-crypto-internal-multi-sig-bls12381",
  "ic-crypto-internal-threshold-sig-bls12381",
  "ic-crypto-internal-threshold-sig-canister-threshold-sig",
  "ic-crypto-internal-types",
  "ic-crypto-tls-cert-validation",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-types",
  "serde",
 ]
@@ -3168,12 +3286,12 @@ dependencies = [
 [[package]]
 name = "ic-crypto-prng"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-types",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "strum",
  "strum_macros",
 ]
@@ -3181,15 +3299,15 @@ dependencies = [
 [[package]]
 name = "ic-crypto-secp256k1"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hmac",
  "k256",
  "lazy_static",
  "num-bigint 0.4.6",
  "pem 1.1.1",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "sha2",
  "simple_asn1",
  "zeroize",
@@ -3198,7 +3316,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-secrets-containers"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "serde",
  "zeroize",
@@ -3207,23 +3325,15 @@ dependencies = [
 [[package]]
 name = "ic-crypto-sha2"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-crypto-internal-sha2 0.9.0 (git+https://github.com/dfinity/ic)",
-]
-
-[[package]]
-name = "ic-crypto-sha2"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
-dependencies = [
- "ic-crypto-internal-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-internal-sha2",
 ]
 
 [[package]]
 name = "ic-crypto-standalone-sig-verifier"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-iccsa",
  "ic-crypto-internal-basic-sig-cose",
@@ -3233,17 +3343,17 @@ dependencies = [
  "ic-crypto-internal-basic-sig-ed25519",
  "ic-crypto-internal-basic-sig-iccsa",
  "ic-crypto-internal-basic-sig-rsa-pkcs1",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-types",
 ]
 
 [[package]]
 name = "ic-crypto-temp-crypto"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "async-trait",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-config",
  "ic-crypto",
  "ic-crypto-interfaces-sig-verification",
@@ -3255,14 +3365,14 @@ dependencies = [
  "ic-crypto-utils-basic-sig",
  "ic-interfaces",
  "ic-interfaces-registry",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-fake",
  "ic-registry-keys",
  "ic-registry-proto-data-provider",
  "ic-types",
- "rand",
+ "rand 0.8.5",
  "rustls",
  "tempfile",
  "tokio",
@@ -3271,7 +3381,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-temp-crypto-vault"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-csp",
  "tempfile",
@@ -3281,20 +3391,20 @@ dependencies = [
 [[package]]
 name = "ic-crypto-test-utils-canister-threshold-sigs"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-threshold-sig-canister-threshold-sig",
  "ic-crypto-temp-crypto",
  "ic-interfaces",
  "ic-logger",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-fake",
  "ic-registry-keys",
  "ic-registry-proto-data-provider",
  "ic-test-utilities-in-memory-logger",
  "ic-types",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "strum",
  "strum_macros",
 ]
@@ -3302,7 +3412,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-test-utils-ni-dkg"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "ic-crypto-internal-bls12-381-type",
@@ -3310,14 +3420,14 @@ dependencies = [
  "ic-crypto-temp-crypto",
  "ic-interfaces",
  "ic-interfaces-registry",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-fake",
  "ic-registry-client-helpers",
  "ic-registry-keys",
  "ic-registry-proto-data-provider",
  "ic-types",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "serde",
  "serde_cbor",
 ]
@@ -3325,11 +3435,11 @@ dependencies = [
 [[package]]
 name = "ic-crypto-tls-cert-validation"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "ic-crypto-internal-basic-sig-ed25519",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-types",
  "serde",
  "x509-parser",
@@ -3338,9 +3448,9 @@ dependencies = [
 [[package]]
 name = "ic-crypto-tls-interfaces"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-types",
  "rustls",
  "serde",
@@ -3351,11 +3461,11 @@ dependencies = [
 [[package]]
 name = "ic-crypto-tree-hash"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-types",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
+ "ic-protobuf",
  "serde",
  "serde_bytes",
  "thiserror 2.0.11",
@@ -3364,17 +3474,17 @@ dependencies = [
 [[package]]
 name = "ic-crypto-utils-basic-sig"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-crypto-ed25519",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
 ]
 
 [[package]]
 name = "ic-crypto-utils-canister-threshold-sig"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-internal-bls12-381-vetkd",
  "ic-crypto-internal-threshold-sig-canister-threshold-sig",
@@ -3384,7 +3494,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-utils-threshold-sig"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "ic-crypto-internal-threshold-sig-bls12381",
@@ -3395,7 +3505,7 @@ dependencies = [
 [[package]]
 name = "ic-crypto-utils-threshold-sig-der"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "ic-crypto-internal-types",
@@ -3406,9 +3516,9 @@ dependencies = [
 [[package]]
 name = "ic-crypto-utils-tls"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "thiserror 2.0.11",
  "x509-parser",
 ]
@@ -3416,13 +3526,13 @@ dependencies = [
 [[package]]
 name = "ic-cycles-account-manager"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-config",
  "ic-interfaces",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-nns-constants",
  "ic-registry-subnet-type",
  "ic-replicated-state",
@@ -3435,7 +3545,7 @@ dependencies = [
 [[package]]
 name = "ic-embedders"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "anyhow",
  "bincode",
@@ -3450,7 +3560,7 @@ dependencies = [
  "ic-sys",
  "ic-system-api",
  "ic-types",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-utils",
  "ic-utils-lru-cache",
  "ic-wasm-transform",
  "ic-wasm-types",
@@ -3477,22 +3587,10 @@ dependencies = [
 [[package]]
 name = "ic-error-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-protobuf 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-utils 0.9.0 (git+https://github.com/dfinity/ic)",
- "serde",
- "strum",
- "strum_macros",
-]
-
-[[package]]
-name = "ic-error-types"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
-dependencies = [
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
+ "ic-utils",
  "serde",
  "strum",
  "strum_macros",
@@ -3501,27 +3599,27 @@ dependencies = [
 [[package]]
 name = "ic-execution-environment"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "escargot",
  "hex",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-btc-interface",
  "ic-canister-sandbox-backend-lib",
  "ic-config",
  "ic-crypto-prng",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-crypto-tree-hash",
  "ic-crypto-utils-canister-threshold-sig",
  "ic-cycles-account-manager",
  "ic-embedders",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-interfaces",
  "ic-interfaces-state-manager",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-metrics",
  "ic-nns-constants",
  "ic-query-stats",
@@ -3534,7 +3632,7 @@ dependencies = [
  "ic-sys",
  "ic-system-api",
  "ic-types",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-utils",
  "ic-utils-lru-cache",
  "ic-utils-thread",
  "ic-wasm-transform",
@@ -3544,9 +3642,9 @@ dependencies = [
  "more-asserts",
  "num-rational",
  "num-traits",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "prometheus",
- "rand",
+ "rand 0.8.5",
  "scoped_threadpool",
  "serde",
  "serde_bytes",
@@ -3563,7 +3661,7 @@ dependencies = [
 [[package]]
 name = "ic-http-endpoints-async-utils"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -3580,7 +3678,7 @@ dependencies = [
 [[package]]
 name = "ic-http-endpoints-public"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "askama",
  "async-trait",
@@ -3597,13 +3695,13 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
- "ic-certification",
+ "ic-certification 0.9.0",
  "ic-config",
  "ic-crypto-interfaces-sig-verification",
  "ic-crypto-tls-interfaces",
  "ic-crypto-tree-hash",
  "ic-crypto-utils-threshold-sig-der",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-http-endpoints-async-utils",
  "ic-interfaces",
  "ic-interfaces-registry",
@@ -3621,7 +3719,7 @@ dependencies = [
  "inferno 0.12.1",
  "prometheus",
  "prost 0.13.4",
- "rand",
+ "rand 0.8.5",
  "serde",
  "serde_cbor",
  "slog",
@@ -3639,18 +3737,18 @@ dependencies = [
 [[package]]
 name = "ic-https-outcalls-consensus"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "ic-consensus-utils",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-interfaces",
  "ic-interfaces-adapter-client",
  "ic-interfaces-registry",
  "ic-interfaces-state-manager",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-helpers",
  "ic-replicated-state",
  "ic-types",
@@ -3659,18 +3757,85 @@ dependencies = [
 ]
 
 [[package]]
+name = "ic-icrc1"
+version = "0.9.0"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+dependencies = [
+ "candid",
+ "ciborium",
+ "hex",
+ "ic-base-types",
+ "ic-crypto-sha2",
+ "ic-icrc1-tokens-u64",
+ "ic-ledger-canister-core",
+ "ic-ledger-core",
+ "ic-ledger-hash-of",
+ "icrc-ledger-types 0.1.8 (git+https://github.com/Rumi-Protocol/ic?rev=fc278709)",
+ "num-bigint 0.4.6",
+ "num-traits",
+ "serde",
+ "serde_bytes",
+ "thiserror 2.0.11",
+]
+
+[[package]]
+name = "ic-icrc1-ledger"
+version = "0.9.0"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+dependencies = [
+ "async-trait",
+ "candid",
+ "ciborium",
+ "hex",
+ "ic-base-types",
+ "ic-canister-log 0.2.0 (git+https://github.com/Rumi-Protocol/ic?rev=fc278709)",
+ "ic-canisters-http-types",
+ "ic-cdk 0.16.0",
+ "ic-cdk-macros 0.9.0",
+ "ic-cdk-timers 0.7.0",
+ "ic-certification 3.0.3",
+ "ic-crypto-tree-hash",
+ "ic-icrc1",
+ "ic-icrc1-tokens-u64",
+ "ic-ledger-canister-core",
+ "ic-ledger-core",
+ "ic-ledger-hash-of",
+ "ic-metrics-encoder",
+ "ic-stable-structures",
+ "icrc-ledger-types 0.1.8 (git+https://github.com/Rumi-Protocol/ic?rev=fc278709)",
+ "leb128",
+ "minicbor",
+ "num-traits",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
+name = "ic-icrc1-tokens-u64"
+version = "0.9.0"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+dependencies = [
+ "candid",
+ "ic-ledger-core",
+ "ic-stable-structures",
+ "minicbor",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "ic-ingress-manager"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-interfaces-sig-verification",
  "ic-cycles-account-manager",
  "ic-interfaces",
  "ic-interfaces-registry",
  "ic-interfaces-state-manager",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-metrics",
  "ic-registry-client-helpers",
  "ic-registry-keys",
@@ -3685,20 +3850,20 @@ dependencies = [
 [[package]]
 name = "ic-interfaces"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-crypto-interfaces-sig-verification",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-interfaces-state-manager",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
+ "ic-protobuf",
  "ic-registry-provisional-whitelist",
  "ic-registry-subnet-type",
  "ic-sys",
  "ic-types",
  "ic-wasm-types",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "prost 0.13.4",
  "serde",
  "strum",
@@ -3710,7 +3875,7 @@ dependencies = [
 [[package]]
 name = "ic-interfaces-adapter-client"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "strum_macros",
  "thiserror 2.0.11",
@@ -3719,7 +3884,7 @@ dependencies = [
 [[package]]
 name = "ic-interfaces-certified-stream-store"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-types",
 ]
@@ -3727,7 +3892,7 @@ dependencies = [
 [[package]]
 name = "ic-interfaces-registry"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-types",
  "prost 0.13.4",
@@ -3737,18 +3902,18 @@ dependencies = [
 [[package]]
 name = "ic-interfaces-state-manager"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-tree-hash",
  "ic-types",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "thiserror 2.0.11",
 ]
 
 [[package]]
 name = "ic-interfaces-state-manager-mocks"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-tree-hash",
  "ic-interfaces-state-manager",
@@ -3760,24 +3925,24 @@ dependencies = [
 [[package]]
 name = "ic-ledger-canister-core"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "async-trait",
  "candid",
- "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-canister-log 0.2.0 (git+https://github.com/dfinity/ic)",
+ "ic-base-types",
+ "ic-canister-log 0.2.0 (git+https://github.com/Rumi-Protocol/ic?rev=fc278709)",
  "ic-ledger-core",
  "ic-ledger-hash-of",
- "ic-limits 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-management-canister-types 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-utils 0.9.0 (git+https://github.com/dfinity/ic)",
+ "ic-limits",
+ "ic-management-canister-types",
+ "ic-utils",
  "serde",
 ]
 
 [[package]]
 name = "ic-ledger-core"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "ic-ledger-hash-of",
@@ -3791,7 +3956,7 @@ dependencies = [
 [[package]]
 name = "ic-ledger-hash-of"
 version = "0.1.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "hex",
@@ -3801,22 +3966,17 @@ dependencies = [
 [[package]]
 name = "ic-limits"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
-
-[[package]]
-name = "ic-limits"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 
 [[package]]
 name = "ic-logger"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "chrono",
  "ic-config",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
+ "ic-utils",
  "serde",
  "slog",
  "slog-async",
@@ -3828,35 +3988,15 @@ dependencies = [
 [[package]]
 name = "ic-management-canister-types"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
- "ic-base-types 0.9.0 (git+https://github.com/dfinity/ic)",
+ "ic-base-types",
  "ic-btc-interface",
- "ic-btc-replica-types 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-error-types 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-utils 0.9.0 (git+https://github.com/dfinity/ic)",
- "num-traits",
- "serde",
- "serde_bytes",
- "serde_cbor",
- "strum",
- "strum_macros",
-]
-
-[[package]]
-name = "ic-management-canister-types"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
-dependencies = [
- "candid",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-btc-interface",
- "ic-btc-replica-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-btc-replica-types",
+ "ic-error-types",
+ "ic-protobuf",
+ "ic-utils",
  "num-traits",
  "serde",
  "serde_bytes",
@@ -3868,24 +4008,24 @@ dependencies = [
 [[package]]
 name = "ic-messaging"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-certification-version",
  "ic-config",
  "ic-crypto-ed25519",
  "ic-crypto-utils-threshold-sig-der",
  "ic-cycles-account-manager",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-interfaces",
  "ic-interfaces-certified-stream-store",
  "ic-interfaces-registry",
  "ic-interfaces-state-manager",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-query-stats",
  "ic-registry-client-helpers",
  "ic-registry-keys",
@@ -3904,7 +4044,7 @@ dependencies = [
 [[package]]
 name = "ic-metrics"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "futures",
  "ic-adapter-metrics-client",
@@ -3925,16 +4065,16 @@ checksum = "8b5c7628eac357aecda461130f8074468be5aa4d258a002032d82d817f79f1f8"
 [[package]]
 name = "ic-nns-constants"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "maplit",
 ]
 
 [[package]]
 name = "ic-pprof"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "async-trait",
  "lazy_static",
@@ -3948,21 +4088,7 @@ dependencies = [
 [[package]]
 name = "ic-protobuf"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
-dependencies = [
- "bincode",
- "candid",
- "erased-serde",
- "prost 0.13.4",
- "serde",
- "serde_json",
- "slog",
-]
-
-[[package]]
-name = "ic-protobuf"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "bincode",
  "candid",
@@ -3976,7 +4102,7 @@ dependencies = [
 [[package]]
 name = "ic-query-stats"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "crossbeam-channel",
  "ic-config",
@@ -3993,7 +4119,7 @@ dependencies = [
 [[package]]
 name = "ic-registry-client-fake"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-interfaces-registry",
  "ic-types",
@@ -4002,13 +4128,13 @@ dependencies = [
 [[package]]
 name = "ic-registry-client-helpers"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-interfaces-registry",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
+ "ic-management-canister-types",
+ "ic-protobuf",
  "ic-registry-common-proto",
  "ic-registry-keys",
  "ic-registry-provisional-whitelist",
@@ -4022,7 +4148,7 @@ dependencies = [
 [[package]]
 name = "ic-registry-common-proto"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "prost 0.13.4",
 ]
@@ -4030,11 +4156,11 @@ dependencies = [
 [[package]]
 name = "ic-registry-keys"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
+ "ic-management-canister-types",
  "ic-types",
  "serde",
 ]
@@ -4042,7 +4168,7 @@ dependencies = [
 [[package]]
 name = "ic-registry-proto-data-provider"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "bytes",
  "ic-interfaces-registry",
@@ -4056,41 +4182,41 @@ dependencies = [
 [[package]]
 name = "ic-registry-provisional-whitelist"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
+ "ic-protobuf",
 ]
 
 [[package]]
 name = "ic-registry-routing-table"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
+ "ic-protobuf",
  "serde",
 ]
 
 [[package]]
 name = "ic-registry-subnet-features"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
+ "ic-protobuf",
  "serde",
 ]
 
 [[package]]
 name = "ic-registry-subnet-type"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "serde",
  "strum",
  "strum_macros",
@@ -4099,11 +4225,11 @@ dependencies = [
 [[package]]
 name = "ic-registry-transport"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
+ "ic-protobuf",
  "prost 0.13.4",
  "serde",
 ]
@@ -4111,29 +4237,29 @@ dependencies = [
 [[package]]
 name = "ic-replicated-state"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "bit-vec 0.6.3",
  "cvt",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-btc-interface",
- "ic-btc-replica-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-btc-replica-types",
  "ic-certification-version",
  "ic-config",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
+ "ic-error-types",
  "ic-interfaces",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-routing-table",
  "ic-registry-subnet-features",
  "ic-registry-subnet-type",
  "ic-sys",
  "ic-types",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-utils",
  "ic-validate-eq",
  "ic-validate-eq-derive",
  "ic-wasm-types",
@@ -4142,11 +4268,11 @@ dependencies = [
  "libc",
  "maplit",
  "nix 0.24.3",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "prometheus",
  "prost 0.13.4",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rayon",
  "serde",
  "slog",
@@ -4160,7 +4286,7 @@ dependencies = [
 [[package]]
 name = "ic-sha3"
 version = "1.0.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "sha3",
 ]
@@ -4177,19 +4303,19 @@ dependencies = [
 [[package]]
 name = "ic-state-layout"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-config",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-replicated-state",
  "ic-sys",
  "ic-types",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-utils",
  "ic-wasm-types",
  "libc",
  "prometheus",
@@ -4201,7 +4327,7 @@ dependencies = [
 [[package]]
 name = "ic-state-machine-tests"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "ciborium",
@@ -4221,7 +4347,7 @@ dependencies = [
  "ic-crypto-tree-hash",
  "ic-crypto-utils-threshold-sig-der",
  "ic-cycles-account-manager",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-execution-environment",
  "ic-http-endpoints-public",
  "ic-https-outcalls-consensus",
@@ -4230,12 +4356,12 @@ dependencies = [
  "ic-interfaces-certified-stream-store",
  "ic-interfaces-registry",
  "ic-interfaces-state-manager",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-messaging",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-fake",
  "ic-registry-client-helpers",
  "ic-registry-keys",
@@ -4257,7 +4383,7 @@ dependencies = [
  "ic-types",
  "ic-xnet-payload-builder",
  "maplit",
- "rand",
+ "rand 0.8.5",
  "rcgen",
  "serde",
  "serde_bytes",
@@ -4275,39 +4401,39 @@ dependencies = [
 [[package]]
 name = "ic-state-manager"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "bit-vec 0.6.3",
  "crossbeam-channel",
  "hex",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-canonical-state",
  "ic-canonical-state-tree-hash",
  "ic-config",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-crypto-tree-hash",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-interfaces",
  "ic-interfaces-certified-stream-store",
  "ic-interfaces-state-manager",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-routing-table",
  "ic-registry-subnet-type",
  "ic-replicated-state",
  "ic-state-layout",
  "ic-sys",
  "ic-types",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-utils",
  "ic-utils-thread",
  "ic-validate-eq",
  "nix 0.24.3",
  "parking_lot",
  "prometheus",
  "prost 0.13.4",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "scoped_threadpool",
  "serde",
  "serde_bytes",
@@ -4322,17 +4448,17 @@ dependencies = [
 [[package]]
 name = "ic-sys"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "cvt",
  "hex",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "lazy_static",
  "libc",
  "nix 0.24.3",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "prost 0.13.4",
- "rand",
+ "rand 0.8.5",
  "thiserror 2.0.11",
  "tokio",
  "wsl",
@@ -4341,25 +4467,25 @@ dependencies = [
 [[package]]
 name = "ic-system-api"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-btc-interface",
  "ic-config",
  "ic-cycles-account-manager",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
  "ic-interfaces",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-management-canister-types",
  "ic-nns-constants",
  "ic-registry-routing-table",
  "ic-registry-subnet-type",
  "ic-replicated-state",
  "ic-sys",
  "ic-types",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-utils",
  "ic-wasm-types",
  "itertools 0.12.1",
  "prometheus",
@@ -4383,14 +4509,14 @@ dependencies = [
 [[package]]
 name = "ic-test-utilities"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex-literal",
- "ic-btc-replica-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-btc-replica-types",
  "ic-config",
  "ic-crypto-interfaces-sig-verification",
  "ic-crypto-internal-types",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-crypto-temp-crypto",
  "ic-crypto-test-utils-canister-threshold-sigs",
  "ic-crypto-test-utils-ni-dkg",
@@ -4403,7 +4529,7 @@ dependencies = [
  "ic-interfaces-state-manager-mocks",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-fake",
  "ic-registry-keys",
  "ic-registry-proto-data-provider",
@@ -4416,7 +4542,7 @@ dependencies = [
  "lazy_static",
  "nix 0.24.3",
  "parking_lot",
- "rand",
+ "rand 0.8.5",
  "serde",
  "serde_cbor",
  "slog",
@@ -4430,17 +4556,17 @@ dependencies = [
 [[package]]
 name = "ic-test-utilities-consensus"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "bincode",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-crypto-test-utils-ni-dkg",
  "ic-interfaces",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-test-utilities-types",
  "ic-types",
  "mockall",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "prost 0.13.4",
  "serde",
 ]
@@ -4448,11 +4574,11 @@ dependencies = [
 [[package]]
 name = "ic-test-utilities-in-memory-logger"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-config",
  "ic-logger",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "parking_lot",
  "serde_json",
  "slog",
@@ -4462,7 +4588,7 @@ dependencies = [
 [[package]]
 name = "ic-test-utilities-metrics"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-metrics",
  "prometheus",
@@ -4471,13 +4597,13 @@ dependencies = [
 [[package]]
 name = "ic-test-utilities-registry"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-test-utils-ni-dkg",
  "ic-interfaces",
  "ic-interfaces-registry",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
+ "ic-protobuf",
  "ic-registry-client-fake",
  "ic-registry-keys",
  "ic-registry-proto-data-provider",
@@ -4489,7 +4615,7 @@ dependencies = [
 [[package]]
 name = "ic-test-utilities-time"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-interfaces",
  "ic-types",
@@ -4498,49 +4624,66 @@ dependencies = [
 [[package]]
 name = "ic-test-utilities-types"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-canister-client-sender",
  "ic-crypto-ed25519",
  "ic-types",
  "ic-types-test-utils",
- "rand",
+ "rand 0.8.5",
 ]
 
 [[package]]
 name = "ic-tracing"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "tracing",
  "tracing-subscriber",
 ]
 
 [[package]]
+name = "ic-transport-types"
+version = "0.37.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "875dc4704780383112e8e8b5063a1b98de114321d0c7d3e7f635dcf360a57fba"
+dependencies = [
+ "candid",
+ "hex",
+ "ic-certification 2.6.0",
+ "leb128",
+ "serde",
+ "serde_bytes",
+ "serde_repr",
+ "sha2",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "ic-types"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "base64 0.13.1",
  "bincode",
  "candid",
  "chrono",
  "hex",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-btc-replica-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
+ "ic-btc-replica-types",
  "ic-crypto-internal-types",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-crypto-tree-hash",
- "ic-error-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-management-canister-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-error-types",
+ "ic-limits",
+ "ic-management-canister-types",
+ "ic-protobuf",
+ "ic-utils",
  "ic-validate-eq",
  "ic-validate-eq-derive",
  "maplit",
  "once_cell",
- "phantom_newtype 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "phantom_newtype",
  "prost 0.13.4",
  "serde",
  "serde_bytes",
@@ -4556,9 +4699,9 @@ dependencies = [
 [[package]]
 name = "ic-types-test-utils"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-types",
  "proptest",
  "strum",
@@ -4567,10 +4710,10 @@ dependencies = [
 [[package]]
 name = "ic-universal-canister"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-embedders",
  "ic-types",
  "lazy_static",
@@ -4581,18 +4724,7 @@ dependencies = [
 [[package]]
 name = "ic-utils"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
-dependencies = [
- "hex",
- "scoped_threadpool",
- "serde",
- "serde_bytes",
-]
-
-[[package]]
-name = "ic-utils"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "scoped_threadpool",
@@ -4603,7 +4735,7 @@ dependencies = [
 [[package]]
 name = "ic-utils-lru-cache"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-types",
  "lru",
@@ -4612,7 +4744,7 @@ dependencies = [
 [[package]]
 name = "ic-utils-thread"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "crossbeam-channel",
 ]
@@ -4620,7 +4752,7 @@ dependencies = [
 [[package]]
 name = "ic-validate-eq"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-validate-eq-derive",
 ]
@@ -4628,7 +4760,7 @@ dependencies = [
 [[package]]
 name = "ic-validate-eq-derive"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4638,14 +4770,14 @@ dependencies = [
 [[package]]
 name = "ic-validator"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hex",
  "ic-crypto-interfaces-sig-verification",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-crypto-standalone-sig-verifier",
  "ic-crypto-tree-hash",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-types",
  "thiserror 2.0.11",
 ]
@@ -4653,7 +4785,7 @@ dependencies = [
 [[package]]
 name = "ic-wasm-transform"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "wasm-encoder 0.217.0",
  "wasmparser 0.217.0",
@@ -4662,12 +4794,12 @@ dependencies = [
 [[package]]
 name = "ic-wasm-types"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
- "ic-crypto-sha2 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-crypto-sha2",
  "ic-sys",
  "ic-types",
- "ic-utils 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-utils",
  "ic-validate-eq",
  "ic-validate-eq-derive",
  "serde",
@@ -4676,7 +4808,7 @@ dependencies = [
 [[package]]
 name = "ic-xnet-hyper"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -4691,13 +4823,13 @@ dependencies = [
 [[package]]
 name = "ic-xnet-payload-builder"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "async-trait",
  "http-body-util",
  "hyper",
  "hyper-util",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-base-types",
  "ic-canonical-state",
  "ic-crypto-tls-interfaces",
  "ic-crypto-tree-hash",
@@ -4705,10 +4837,10 @@ dependencies = [
  "ic-interfaces-certified-stream-store",
  "ic-interfaces-registry",
  "ic-interfaces-state-manager",
- "ic-limits 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-limits",
  "ic-logger",
  "ic-metrics",
- "ic-protobuf 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "ic-protobuf",
  "ic-registry-client-helpers",
  "ic-registry-keys",
  "ic-registry-subnet-type",
@@ -4717,7 +4849,7 @@ dependencies = [
  "ic-xnet-hyper",
  "ic-xnet-uri",
  "prometheus",
- "rand",
+ "rand 0.8.5",
  "slog",
  "thiserror 2.0.11",
  "tokio",
@@ -4726,7 +4858,7 @@ dependencies = [
 [[package]]
 name = "ic-xnet-uri"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "http",
  "ic-types",
@@ -4770,7 +4902,7 @@ dependencies = [
  "ff",
  "group",
  "pairing",
- "rand_core",
+ "rand_core 0.6.4",
  "subtle",
  "zeroize",
 ]
@@ -4781,6 +4913,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1762deb6f7c8d8c2bdee4b6c5a47b60195b74e9b5280faa5ba29692f8e17429c"
 dependencies = [
+ "arbitrary",
  "crc32fast",
  "data-encoding",
  "serde",
@@ -4791,7 +4924,19 @@ dependencies = [
 [[package]]
 name = "icrc-cbor"
 version = "0.1.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90569d2894d9536c5416943556ac6339df249f06611b3c41029196b39e0dd119"
+dependencies = [
+ "candid",
+ "minicbor",
+ "num-bigint 0.4.6",
+ "num-traits",
+]
+
+[[package]]
+name = "icrc-cbor"
+version = "0.1.0"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "minicbor",
@@ -4802,18 +4947,18 @@ dependencies = [
 [[package]]
 name = "icrc-ledger-client"
 version = "0.1.2"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "async-trait",
  "candid",
- "icrc-ledger-types 0.1.8",
+ "icrc-ledger-types 0.1.8 (git+https://github.com/Rumi-Protocol/ic?rev=fc278709)",
  "serde",
 ]
 
 [[package]]
 name = "icrc-ledger-client-cdk"
 version = "0.1.2"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "async-trait",
  "candid",
@@ -4823,35 +4968,16 @@ dependencies = [
 
 [[package]]
 name = "icrc-ledger-types"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "589f7f6b54df25295dd0ce2722d583c15e2ee7eec9cef58c10b424feb54561b2"
-dependencies = [
- "base32",
- "candid",
- "crc32fast",
- "hex",
- "itertools 0.12.1",
- "num-bigint 0.4.6",
- "num-traits",
- "serde",
- "serde_bytes",
- "sha2",
- "strum",
- "time",
-]
-
-[[package]]
-name = "icrc-ledger-types"
 version = "0.1.8"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6892e56ad2a8a08d2371b204103209ad335f63e9f0c1fcd00116d3df9e422a6f"
 dependencies = [
  "base32",
  "candid",
  "crc32fast",
  "hex",
  "ic-stable-structures",
- "icrc-cbor",
+ "icrc-cbor 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.12.1",
  "minicbor",
  "num-bigint 0.4.6",
@@ -4865,6 +4991,115 @@ dependencies = [
 ]
 
 [[package]]
+name = "icrc-ledger-types"
+version = "0.1.8"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+dependencies = [
+ "base32",
+ "candid",
+ "crc32fast",
+ "hex",
+ "ic-stable-structures",
+ "icrc-cbor 0.1.0 (git+https://github.com/Rumi-Protocol/ic?rev=fc278709)",
+ "itertools 0.12.1",
+ "minicbor",
+ "num-bigint 0.4.6",
+ "num-traits",
+ "serde",
+ "serde_bytes",
+ "sha2",
+ "strum",
+ "strum_macros",
+ "time",
+]
+
+[[package]]
+name = "icu_collections"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "200072f5d0e3614556f94a9930d5dc3e0662a652823904c3a75dc3b0af7fee47"
+dependencies = [
+ "displaydoc",
+ "potential_utf",
+ "yoke",
+ "zerofrom",
+ "zerovec",
+]
+
+[[package]]
+name = "icu_locale_core"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cde2700ccaed3872079a65fb1a78f6c0a36c91570f28755dda67bc8f7d9f00a"
+dependencies = [
+ "displaydoc",
+ "litemap",
+ "tinystr",
+ "writeable",
+ "zerovec",
+]
+
+[[package]]
+name = "icu_normalizer"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "436880e8e18df4d7bbc06d58432329d6458cc84531f7ac5f024e93deadb37979"
+dependencies = [
+ "displaydoc",
+ "icu_collections",
+ "icu_normalizer_data",
+ "icu_properties",
+ "icu_provider",
+ "smallvec",
+ "zerovec",
+]
+
+[[package]]
+name = "icu_normalizer_data"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00210d6893afc98edb752b664b8890f0ef174c8adbb8d0be9710fa66fbbf72d3"
+
+[[package]]
+name = "icu_properties"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "016c619c1eeb94efb86809b015c58f479963de65bdb6253345c1a1276f22e32b"
+dependencies = [
+ "displaydoc",
+ "icu_collections",
+ "icu_locale_core",
+ "icu_properties_data",
+ "icu_provider",
+ "potential_utf",
+ "zerotrie",
+ "zerovec",
+]
+
+[[package]]
+name = "icu_properties_data"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "298459143998310acd25ffe6810ed544932242d3f07083eee1084d83a71bd632"
+
+[[package]]
+name = "icu_provider"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03c80da27b5f4187909049ee2d72f276f0d9f99a42c306bd0131ecfe04d8e5af"
+dependencies = [
+ "displaydoc",
+ "icu_locale_core",
+ "stable_deref_trait",
+ "tinystr",
+ "writeable",
+ "yoke",
+ "zerofrom",
+ "zerotrie",
+ "zerovec",
+]
+
+[[package]]
 name = "id-arena"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4875,6 +5110,27 @@ name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
+
+[[package]]
+name = "idna"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "686f825264d630750a544639377bae737628043f20d38bbc029e8f29ea968a7e"
+dependencies = [
+ "idna_adapter",
+ "smallvec",
+ "utf8_iter",
+]
+
+[[package]]
+name = "idna_adapter"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3acae9609540aa318d1bc588455225fb2085b9ed0c4f6bd0d9d5bcd86f1a0344"
+dependencies = [
+ "icu_normalizer",
+ "icu_properties",
+]
 
 [[package]]
 name = "indexmap"
@@ -4947,6 +5203,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipnet"
+version = "2.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
+
+[[package]]
 name = "is-terminal"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4968,6 +5230,15 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
 dependencies = [
  "either",
 ]
@@ -5050,6 +5321,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "lalrpop"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55cb077ad656299f160924eb2912aa147d7339ea7d69e1b5517326fdcec3c1ca"
+dependencies = [
+ "ascii-canvas",
+ "bit-set 0.5.3",
+ "ena",
+ "itertools 0.11.0",
+ "lalrpop-util",
+ "petgraph",
+ "pico-args",
+ "regex",
+ "regex-syntax 0.8.5",
+ "string_cache",
+ "term",
+ "tiny-keccak",
+ "unicode-xid",
+ "walkdir",
+]
+
+[[package]]
+name = "lalrpop-util"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "507460a910eb7b32ee961886ff48539633b788a36b65692b95f225b844c82553"
+dependencies = [
+ "regex-automata 0.4.9",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5107,7 +5409,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if 1.0.0",
- "windows-targets",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -5158,6 +5460,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
 
 [[package]]
+name = "litemap"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "241eaef5fd12c88705a01fc1066c48c4b36e0dd4377dcdc7ec3942cea7a69956"
+
+[[package]]
 name = "lmdb-rkv"
 version = "0.14.99"
 source = "git+https://github.com/dfinity-lab/lmdb-rs?rev=f62018b2deb79ea0d53914d5502389433fc3e6da#f62018b2deb79ea0d53914d5502389433fc3e6da"
@@ -5196,10 +5504,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04cbf5b083de1c7e0222a7a51dbfdba1cbe1c6ab0b15e29fff3f6c077fd9cd9f"
 
 [[package]]
+name = "logos"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c000ca4d908ff18ac99b93a062cb8958d331c3220719c52e77cb19cc6ac5d2c1"
+dependencies = [
+ "logos-derive",
+]
+
+[[package]]
+name = "logos-codegen"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc487311295e0002e452025d6b580b77bb17286de87b57138f3b5db711cded68"
+dependencies = [
+ "beef",
+ "fnv",
+ "proc-macro2",
+ "quote",
+ "regex-syntax 0.6.29",
+ "syn 2.0.96",
+]
+
+[[package]]
+name = "logos-derive"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbfc0d229f1f42d790440136d941afd806bc9e949e2bcb8faa813b0f00d1267e"
+dependencies = [
+ "logos-codegen",
+]
+
+[[package]]
 name = "lru"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e999beba7b6e8345721bd280141ed958096a2e4abdf74f67ff4ce49b4b54e47a"
+
+[[package]]
+name = "lru-slab"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "mach2"
@@ -5267,7 +5613,7 @@ dependencies = [
 [[package]]
 name = "memory_tracker"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "bit-vec 0.6.3",
  "ic-logger",
@@ -5293,7 +5639,7 @@ checksum = "58c38e2799fc0978b65dfff8023ec7843e2330bb462f19198840b34b6582397d"
 dependencies = [
  "byteorder",
  "keccak",
- "rand_core",
+ "rand_core 0.6.4",
  "zeroize",
 ]
 
@@ -5355,7 +5701,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2886843bf800fba2e3377cff24abf6379b4c4d5c6681eaf9ea5b0d15090450bd"
 dependencies = [
  "libc",
- "wasi",
+ "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.52.0",
 ]
 
@@ -5396,6 +5742,12 @@ name = "multimap"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "defc4c55412d89136f966bbb339008b474350e5e6e78d2714439c386b3137a03"
+
+[[package]]
+name = "new_debug_unreachable"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nix"
@@ -5474,7 +5826,7 @@ dependencies = [
  "num-integer",
  "num-iter",
  "num-traits",
- "rand",
+ "rand 0.8.5",
  "serde",
  "smallvec",
  "zeroize",
@@ -5572,7 +5924,7 @@ dependencies = [
 [[package]]
 name = "on_wire"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 
 [[package]]
 name = "once_cell"
@@ -5631,7 +5983,7 @@ dependencies = [
  "once_cell",
  "opentelemetry_api",
  "percent-encoding",
- "rand",
+ "rand 0.8.5",
  "thiserror 1.0.69",
 ]
 
@@ -5682,7 +6034,7 @@ dependencies = [
  "libc",
  "redox_syscall",
  "smallvec",
- "windows-targets",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -5789,7 +6141,7 @@ dependencies = [
 [[package]]
 name = "phantom_newtype"
 version = "0.9.0"
-source = "git+https://github.com/dfinity/ic#ac71086bf4d6854e8612d21f8104ba839283dc48"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "num-traits",
@@ -5798,15 +6150,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "phantom_newtype"
-version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+name = "phf_shared"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67eabc2ef2a60eb7faa00097bd1ffdb5bd28e62bf39990626a582201b7a754e5"
 dependencies = [
- "candid",
- "num-traits",
- "serde",
- "slog",
+ "siphasher",
 ]
+
+[[package]]
+name = "pico-args"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 
 [[package]]
 name = "pin-project"
@@ -5896,6 +6252,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "pocket-ic"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "124a2380ca6f557adf8b02517cbfd2f564113230e14cda6f6aadd3dfe156293c"
+dependencies = [
+ "base64 0.13.1",
+ "candid",
+ "hex",
+ "ic-certification 2.6.0",
+ "ic-transport-types",
+ "reqwest",
+ "schemars",
+ "serde",
+ "serde_bytes",
+ "serde_cbor",
+ "serde_json",
+ "sha2",
+ "slog",
+ "strum",
+ "strum_macros",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "wslpath",
+]
+
+[[package]]
 name = "postcard"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5905,6 +6290,15 @@ dependencies = [
  "embedded-io 0.4.0",
  "embedded-io 0.6.1",
  "serde",
+]
+
+[[package]]
+name = "potential_utf"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5a7c30837279ca13e7c867e9e40053bc68740f988cb07f7ca6df43cc734b585"
+dependencies = [
+ "zerovec",
 ]
 
 [[package]]
@@ -5948,6 +6342,12 @@ checksum = "77957b295656769bb8ad2b6a6b09d897d94f05c41b069aede1fcdaa675eaea04"
 dependencies = [
  "zerocopy",
 ]
+
+[[package]]
+name = "precomputed-hash"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
 
 [[package]]
 name = "predicates"
@@ -6093,13 +6493,13 @@ version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14cae93065090804185d3b75f0bf93b8eeda30c7a9b4a33d3bdb3988d6229e50"
 dependencies = [
- "bit-set",
+ "bit-set 0.8.0",
  "bit-vec 0.8.0",
  "bitflags 2.8.0",
  "lazy_static",
  "num-traits",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rand_xorshift",
  "regex-syntax 0.8.5",
  "rusty-fork",
@@ -6283,6 +6683,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "quinn"
+version = "0.11.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "626214629cda6781b6dc1d316ba307189c85ba657213ce642d9c77670f8202c8"
+dependencies = [
+ "bytes",
+ "cfg_aliases",
+ "pin-project-lite",
+ "quinn-proto",
+ "quinn-udp",
+ "rustc-hash 2.1.0",
+ "rustls",
+ "socket2",
+ "thiserror 2.0.11",
+ "tokio",
+ "tracing",
+ "web-time",
+]
+
+[[package]]
+name = "quinn-proto"
+version = "0.11.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49df843a9161c85bb8aae55f101bc0bac8bcafd637a620d9122fd7e0b2f7422e"
+dependencies = [
+ "bytes",
+ "getrandom 0.3.3",
+ "lru-slab",
+ "rand 0.9.2",
+ "ring",
+ "rustc-hash 2.1.0",
+ "rustls",
+ "rustls-pki-types",
+ "slab",
+ "thiserror 2.0.11",
+ "tinyvec",
+ "tracing",
+ "web-time",
+]
+
+[[package]]
+name = "quinn-udp"
+version = "0.5.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcebb1209ee276352ef14ff8732e24cc2b02bbac986cd74a4c81bcb2f9881970"
+dependencies = [
+ "cfg_aliases",
+ "libc",
+ "once_cell",
+ "socket2",
+ "tracing",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6290,6 +6745,12 @@ checksum = "0e4dccaaaf89514f546c693ddc140f729f958c247918a13380cccc6078391acc"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "r-efi"
+version = "5.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "radium"
@@ -6304,8 +6765,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
- "rand_chacha",
- "rand_core",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6db2770f06117d490610c7488547d543617b21bfa07796d7a12f6f1bd53850d1"
+dependencies = [
+ "rand_chacha 0.9.0",
+ "rand_core 0.9.3",
 ]
 
 [[package]]
@@ -6315,7 +6786,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
- "rand_core",
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.9.3",
 ]
 
 [[package]]
@@ -6324,7 +6805,16 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.15",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99d9a13982dcf210057a8a78572b2217b667c3beacbf3a0d8b454f6f82837d38"
+dependencies = [
+ "getrandom 0.3.3",
 ]
 
 [[package]]
@@ -6333,7 +6823,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
 dependencies = [
- "rand_core",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -6385,7 +6875,7 @@ version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.15",
  "libredox",
  "thiserror 1.0.69",
 ]
@@ -6458,6 +6948,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest"
+version = "0.12.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d19c46a6fdd48bc4dab94b6103fccc55d34c67cc0ad04653aad4ea2a07cd7bbb"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "futures-channel",
+ "futures-core",
+ "futures-util",
+ "h2",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "ipnet",
+ "js-sys",
+ "log",
+ "mime",
+ "mime_guess",
+ "once_cell",
+ "percent-encoding",
+ "pin-project-lite",
+ "quinn",
+ "rustls",
+ "rustls-native-certs",
+ "rustls-pemfile",
+ "rustls-pki-types",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "sync_wrapper",
+ "tokio",
+ "tokio-rustls",
+ "tokio-socks",
+ "tokio-util",
+ "tower 0.5.2",
+ "tower-service",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-streams",
+ "web-sys",
+ "webpki-roots 0.26.11",
+ "windows-registry",
+]
+
+[[package]]
 name = "rfc6979"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6484,7 +7024,7 @@ checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
 dependencies = [
  "cc",
  "cfg-if 1.0.0",
- "getrandom",
+ "getrandom 0.2.15",
  "libc",
  "spin",
  "untrusted",
@@ -6549,7 +7089,7 @@ dependencies = [
  "num-traits",
  "pkcs1",
  "pkcs8",
- "rand_core",
+ "rand_core 0.6.4",
  "sha2",
  "signature",
  "spki",
@@ -6562,25 +7102,33 @@ name = "rumi_protocol_backend"
 version = "0.1.0"
 dependencies = [
  "assert_matches",
+ "async-trait",
  "candid",
+ "candid_parser",
  "ciborium",
- "ic-base-types 0.9.0 (git+https://github.com/Rumi-Protocol/ic)",
- "ic-canister-log 0.2.0 (git+https://github.com/Rumi-Protocol/ic)",
+ "flate2",
+ "futures",
+ "ic-base-types",
+ "ic-canister-log 0.2.0 (git+https://github.com/Rumi-Protocol/ic?rev=fc278709)",
  "ic-canisters-http-types",
  "ic-cdk 0.12.2",
  "ic-cdk-macros 0.8.4",
- "ic-cdk-timers",
+ "ic-cdk-timers 0.10.0",
+ "ic-icrc1-ledger",
+ "ic-ledger-canister-core",
+ "ic-management-canister-types",
  "ic-metrics-encoder",
  "ic-stable-structures",
  "ic-state-machine-tests",
  "ic-xrc-types",
  "ic0 0.18.11",
  "icrc-ledger-client-cdk",
- "icrc-ledger-types 0.1.8",
+ "icrc-ledger-types 0.1.8 (git+https://github.com/Rumi-Protocol/ic?rev=fc278709)",
  "lazy_static",
  "num-traits",
+ "pocket-ic",
  "proptest",
- "rand",
+ "rand 0.8.5",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
@@ -6591,26 +7139,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "rumi_vault"
+name = "rumi_treasury"
 version = "0.1.0"
 dependencies = [
  "candid",
- "ciborium",
- "hex",
- "ic-cdk 0.16.0",
- "ic-cdk-macros 0.16.0",
- "ic-cdk-timers",
- "ic-crypto-sha2 0.9.0 (git+https://github.com/dfinity/ic)",
- "ic-ledger-canister-core",
- "ic-ledger-core",
- "ic-ledger-hash-of",
+ "ic-canister-log 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ic-cdk 0.12.2",
  "ic-stable-structures",
- "icrc-ledger-types 0.1.6",
- "num-bigint 0.4.6",
- "num-traits",
+ "icrc-ledger-types 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
- "serde_bytes",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -6623,7 +7162,7 @@ dependencies = [
  "borsh",
  "bytes",
  "num-traits",
- "rand",
+ "rand 0.8.5",
  "rkyv",
  "serde",
  "serde_json",
@@ -6717,10 +7256,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-pemfile"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
+dependencies = [
+ "rustls-pki-types",
+]
+
+[[package]]
 name = "rustls-pki-types"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2bf47e6ff922db3825eb750c4e2ff784c6ff8fb9e13046ef6a1d1c5401b0b37"
+dependencies = [
+ "web-time",
+]
 
 [[package]]
 name = "rustls-webpki"
@@ -6773,6 +7324,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f29ebaa345f945cec9fbbc532eb307f0fdad8161f281b6369539c8d84876b3d"
 dependencies = [
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "schemars"
+version = "0.8.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
+dependencies = [
+ "dyn-clone",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "0.8.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32e265784ad618884abaea0600a9adf15393368d840e0222d101a072f3f7534d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -6887,6 +7462,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_derive_internals"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.96",
+]
+
+[[package]]
 name = "serde_json"
 version = "1.0.135"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6906,6 +7492,17 @@ checksum = "af99884400da37c88f5e9146b7f1fd0fbcae8f6eec4e9da38b67d05486f814a6"
 dependencies = [
  "itoa",
  "serde",
+]
+
+[[package]]
+name = "serde_repr"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "175ee3e80ae9982737ca543e96133087cbd9a485eecc3bc4de9c1a37b47ea59c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -7017,7 +7614,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
 dependencies = [
  "digest",
- "rand_core",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -7037,6 +7634,12 @@ dependencies = [
  "thiserror 2.0.11",
  "time",
 ]
+
+[[package]]
+name = "siphasher"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "slab"
@@ -7187,6 +7790,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9091b6114800a5f2141aee1d1b9d6ca3592ac062dc5decb3764ec5895a47b4eb"
 
 [[package]]
+name = "string_cache"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf776ba3fa74f83bf4b63c3dcbbf82173db2632ed8452cb2d891d33f459de70f"
+dependencies = [
+ "new_debug_unreachable",
+ "parking_lot",
+ "phf_shared",
+ "precomputed-hash",
+]
+
+[[package]]
 name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7227,7 +7842,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "373a722240991e091384a571e1fd8abde15eca4494a1a2bff95dbf603d15a866"
 dependencies = [
  "log",
- "rand",
+ "rand 0.8.5",
  "tokio",
 ]
 
@@ -7286,6 +7901,9 @@ name = "sync_wrapper"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
+dependencies = [
+ "futures-core",
+]
 
 [[package]]
 name = "synstructure"
@@ -7328,7 +7946,7 @@ dependencies = [
  "humantime",
  "opentelemetry",
  "pin-project",
- "rand",
+ "rand 0.8.5",
  "serde",
  "static_assertions",
  "tarpc-plugins",
@@ -7359,7 +7977,7 @@ checksum = "9a8a559c81686f576e8cd0290cd2a24a2a9ad80c98b3478856500fcbd7acd704"
 dependencies = [
  "cfg-if 1.0.0",
  "fastrand",
- "getrandom",
+ "getrandom 0.2.15",
  "once_cell",
  "rustix",
  "windows-sys 0.59.0",
@@ -7488,6 +8106,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiny-keccak"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
+dependencies = [
+ "crunchy",
+]
+
+[[package]]
+name = "tinystr"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d4f6d1145dcb577acf783d4e601bc1d76a13337bb54e6233add580b07344c8b"
+dependencies = [
+ "displaydoc",
+ "zerovec",
+]
+
+[[package]]
 name = "tinytemplate"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7590,6 +8227,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-socks"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d4770b8024672c1101b3f6733eab95b18007dbe0847a8afe341fcf79e06043f"
+dependencies = [
+ "either",
+ "futures-util",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-stream"
 version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7689,7 +8338,7 @@ dependencies = [
  "indexmap 1.9.3",
  "pin-project",
  "pin-project-lite",
- "rand",
+ "rand 0.8.5",
  "slab",
  "tokio",
  "tokio-util",
@@ -7763,6 +8412,18 @@ dependencies = [
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-appender"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3566e8ce28cc0a3fe42519fc80e6b4c943cc4c8cef275620eb8dac2d3d4e06cf"
+dependencies = [
+ "crossbeam-channel",
+ "thiserror 1.0.69",
+ "time",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -7856,7 +8517,7 @@ dependencies = [
 [[package]]
 name = "tree-deserializer"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "ic-crypto-tree-hash",
  "leb128",
@@ -7932,7 +8593,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 [[package]]
 name = "universal-canister"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "lazy_static",
@@ -7947,10 +8608,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
+name = "url"
+version = "2.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32f8b686cadd1473f4bd0117a5d28d36b1ade384ea9b5069a1c40aefed7fda60"
+dependencies = [
+ "form_urlencoded",
+ "idna",
+ "percent-encoding",
+]
+
+[[package]]
 name = "utf8-width"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86bd8d4e895da8537e5315b8254664e6b769c4ff3db18321b297a1e7004392e3"
+
+[[package]]
+name = "utf8_iter"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "utf8parse"
@@ -7964,7 +8642,7 @@ version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "744018581f9a3454a9e15beb8a33b017183f1e7c0cd170232a2d1453b23a51c4"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.15",
  "serde",
 ]
 
@@ -8021,6 +8699,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
+name = "wasi"
+version = "0.14.2+wasi-0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9683f9a5a998d873c0d21fcbe3c083009670149a8fab228644b8bd36b2c48cb3"
+dependencies = [
+ "wit-bindgen-rt",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8044,6 +8731,19 @@ dependencies = [
  "quote",
  "syn 2.0.96",
  "wasm-bindgen-shared",
+]
+
+[[package]]
+name = "wasm-bindgen-futures"
+version = "0.4.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "555d470ec0bc3bb57890405e5d4322cc9ea83cebb085523ced7be4144dac1e61"
+dependencies = [
+ "cfg-if 1.0.0",
+ "js-sys",
+ "once_cell",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -8106,6 +8806,19 @@ checksum = "7e636076193fa68103e937ac951b5f2f587624097017d764b8984d9c0f149464"
 dependencies = [
  "leb128",
  "wasmparser 0.223.0",
+]
+
+[[package]]
+name = "wasm-streams"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -8385,6 +9098,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "web-time"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "0.26.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
+dependencies = [
+ "webpki-roots 1.0.2",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e8983c3ab33d6fb807cfcdad2491c4ea8cbc8ed839181c7dfd9c67c83e261b2"
+dependencies = [
+ "rustls-pki-types",
+]
+
+[[package]]
 name = "wee_alloc"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8462,7 +9203,42 @@ version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
 dependencies = [
- "windows-targets",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-link"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e6ad25900d524eaabdbbb96d20b4311e1e7ae1699af4fb28c17ae66c80d798a"
+
+[[package]]
+name = "windows-registry"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4286ad90ddb45071efd1a66dfa43eb02dd0dfbae1545ad6cc3c51cf34d7e8ba3"
+dependencies = [
+ "windows-result",
+ "windows-strings",
+ "windows-targets 0.53.3",
+]
+
+[[package]]
+name = "windows-result"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56f42bd332cc6c8eac5af113fc0c1fd6a8fd2aa08a0119358686e5160d0586c6"
+dependencies = [
+ "windows-link",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87fa48cc5d406560701792be122a10132491cff9d0aeb23583cc2dcafc847319"
+dependencies = [
+ "windows-link",
 ]
 
 [[package]]
@@ -8471,7 +9247,7 @@ version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
 dependencies = [
- "windows-targets",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -8480,7 +9256,7 @@ version = "0.59.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
 dependencies = [
- "windows-targets",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -8489,14 +9265,31 @@ version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b724f72796e036ab90c1021d4780d4d3d648aca59e491e6b98e725b84e99973"
 dependencies = [
- "windows_aarch64_gnullvm",
- "windows_aarch64_msvc",
- "windows_i686_gnu",
- "windows_i686_gnullvm",
- "windows_i686_msvc",
- "windows_x86_64_gnu",
- "windows_x86_64_gnullvm",
- "windows_x86_64_msvc",
+ "windows_aarch64_gnullvm 0.52.6",
+ "windows_aarch64_msvc 0.52.6",
+ "windows_i686_gnu 0.52.6",
+ "windows_i686_gnullvm 0.52.6",
+ "windows_i686_msvc 0.52.6",
+ "windows_x86_64_gnu 0.52.6",
+ "windows_x86_64_gnullvm 0.52.6",
+ "windows_x86_64_msvc 0.52.6",
+]
+
+[[package]]
+name = "windows-targets"
+version = "0.53.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5fe6031c4041849d7c496a8ded650796e7b6ecc19df1a431c1a363342e5dc91"
+dependencies = [
+ "windows-link",
+ "windows_aarch64_gnullvm 0.53.0",
+ "windows_aarch64_msvc 0.53.0",
+ "windows_i686_gnu 0.53.0",
+ "windows_i686_gnullvm 0.53.0",
+ "windows_i686_msvc 0.53.0",
+ "windows_x86_64_gnu 0.53.0",
+ "windows_x86_64_gnullvm 0.53.0",
+ "windows_x86_64_msvc 0.53.0",
 ]
 
 [[package]]
@@ -8506,10 +9299,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a4622180e7a0ec044bb555404c800bc9fd9ec262ec147edd5989ccd0c02cd3"
 
 [[package]]
+name = "windows_aarch64_gnullvm"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86b8d5f90ddd19cb4a147a5fa63ca848db3df085e25fee3cc10b39b6eebae764"
+
+[[package]]
 name = "windows_aarch64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09ec2a7bb152e2252b53fa7803150007879548bc709c039df7627cabbd05d469"
+
+[[package]]
+name = "windows_aarch64_msvc"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7651a1f62a11b8cbd5e0d42526e55f2c99886c77e007179efff86c2b137e66c"
 
 [[package]]
 name = "windows_i686_gnu"
@@ -8518,10 +9323,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e9b5ad5ab802e97eb8e295ac6720e509ee4c243f69d781394014ebfe8bbfa0b"
 
 [[package]]
+name = "windows_i686_gnu"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1dc67659d35f387f5f6c479dc4e28f1d4bb90ddd1a5d3da2e5d97b42d6272c3"
+
+[[package]]
 name = "windows_i686_gnullvm"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0eee52d38c090b3caa76c563b86c3a4bd71ef1a819287c19d586d7334ae8ed66"
+
+[[package]]
+name = "windows_i686_gnullvm"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ce6ccbdedbf6d6354471319e781c0dfef054c81fbc7cf83f338a4296c0cae11"
 
 [[package]]
 name = "windows_i686_msvc"
@@ -8530,10 +9347,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "240948bc05c5e7c6dabba28bf89d89ffce3e303022809e73deaefe4f6ec56c66"
 
 [[package]]
+name = "windows_i686_msvc"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "581fee95406bb13382d2f65cd4a908ca7b1e4c2f1917f143ba16efe98a589b5d"
+
+[[package]]
 name = "windows_x86_64_gnu"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "147a5c80aabfbf0c7d901cb5895d1de30ef2907eb21fbbab29ca94c5b08b1a78"
+
+[[package]]
+name = "windows_x86_64_gnu"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e55b5ac9ea33f2fc1716d1742db15574fd6fc8dadc51caab1c16a3d3b4190ba"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
@@ -8542,10 +9371,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24d5b23dc417412679681396f2b49f3de8c1473deb516bd34410872eff51ed0d"
 
 [[package]]
+name = "windows_x86_64_gnullvm"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a6e035dd0599267ce1ee132e51c27dd29437f63325753051e71dd9e42406c57"
+
+[[package]]
 name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+
+[[package]]
+name = "windows_x86_64_msvc"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 
 [[package]]
 name = "winnow"
@@ -8554,6 +9395,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d71a593cc5c42ad7876e2c1fda56f314f3754c084128833e64f1345ff8a03a"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "wit-bindgen-rt"
+version = "0.39.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
+dependencies = [
+ "bitflags 2.8.0",
 ]
 
 [[package]]
@@ -8575,10 +9425,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "writeable"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea2f10b9bb0928dfb1b42b65e1f9e36f7f54dbdf08457afefb38afcdec4fa2bb"
+
+[[package]]
 name = "wsl"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dab7ac864710bdea6594becbea5b5050333cf34fefb0dc319567eb347950d4"
+
+[[package]]
+name = "wslpath"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04a2ecdf2cc4d33a6a93d71bcfbc00bb1f635cdb8029a2cc0709204a045ec7a3"
 
 [[package]]
 name = "wyz"
@@ -8609,7 +9471,7 @@ dependencies = [
 [[package]]
 name = "xrc-mock"
 version = "0.9.0"
-source = "git+https://github.com/Rumi-Protocol/ic#fc2787097c765498ca80e9497c3931ada0ec8bd4"
+source = "git+https://github.com/Rumi-Protocol/ic?rev=fc278709#fc2787097c765498ca80e9497c3931ada0ec8bd4"
 dependencies = [
  "candid",
  "ic-cdk 0.16.0",
@@ -8634,6 +9496,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "yoke"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f41bb01b8226ef4bfd589436a297c53d118f65921786300e427be8d487695cc"
+dependencies = [
+ "serde",
+ "stable_deref_trait",
+ "yoke-derive",
+ "zerofrom",
+]
+
+[[package]]
+name = "yoke-derive"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38da3c9736e16c5d3c8c597a9aaa5d1fa565d0532ae05e27c24aa62fb32c0ab6"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.96",
+ "synstructure",
+]
+
+[[package]]
 name = "zerocopy"
 version = "0.7.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8655,6 +9541,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "zerofrom"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50cc42e0333e05660c3587f3bf9d0478688e15d870fab3346451ce7f8c9fbea5"
+dependencies = [
+ "zerofrom-derive",
+]
+
+[[package]]
+name = "zerofrom-derive"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d71e5d6e06ab090c67b5e44993ec16b72dcbaabc526db883a360057678b48502"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.96",
+ "synstructure",
+]
+
+[[package]]
 name = "zeroize"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8668,6 +9575,39 @@ name = "zeroize_derive"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.96",
+]
+
+[[package]]
+name = "zerotrie"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36f0bbd478583f79edad978b407914f61b2972f5af6fa089686016be8f9af595"
+dependencies = [
+ "displaydoc",
+ "yoke",
+ "zerofrom",
+]
+
+[[package]]
+name = "zerovec"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7aa2bd55086f1ab526693ecbe444205da57e25f4489879da80635a46d90e73b"
+dependencies = [
+ "yoke",
+ "zerofrom",
+ "zerovec-derive",
+]
+
+[[package]]
+name = "zerovec-derive"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b96237efa0c878c64bd89c436f661be4e46b2f3eff1ebb976f7ef2321d2f58f"
 dependencies = [
  "proc-macro2",
  "quote",

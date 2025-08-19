@@ -67,6 +67,7 @@ pub struct InitArg {
     pub icp_ledger_principal: Principal,
     pub fee_e8s: u64,
     pub developer_principal: Principal,
+    pub treasury_principal: Option<Principal>,
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

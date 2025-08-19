@@ -114,6 +114,88 @@ export class walletOperations {
   }
 
   /**
+   * Check current ckBTC allowance for the protocol canister
+   */
+  static async checkCkbtcAllowance(spenderCanisterId: string): Promise<bigint> {
+    try {
+      const walletState = get(walletStore);
+      if (!walletState.principal) {
+        throw new Error('Wallet not connected');
+      }
+      
+      // Get ckBTC ledger actor
+      const ckbtcActor = await walletStore.getActor(CONFIG.currentCkbtcLedgerId, CONFIG.ckbtc_ledgerIDL);
+      
+      // Make allowance query
+      const result = await ckbtcActor.icrc2_allowance({
+        account: { 
+          owner: walletState.principal, 
+          subaccount: [] 
+        },
+        spender: { 
+          owner: Principal.fromText(spenderCanisterId), 
+          subaccount: [] 
+        }
+      });
+      
+      return result.allowance;
+    } catch (err) {
+      console.error('Failed to check ckBTC allowance:', err);
+      return BigInt(0);
+    }
+  }
+
+  /**
+   * Approve ckBTC transfer to a specified canister
+   */
+  static async approveCkbtcTransfer(amount: bigint, spenderCanisterId: string): Promise<{success: boolean, error?: string}> {
+    try {
+      const walletState = get(walletStore);
+      if (!walletState.principal) {
+        throw new Error('Wallet not connected');
+      }
+      
+      // Get ckBTC ledger actor
+      const ckbtcActor = await walletStore.getActor(CONFIG.currentCkbtcLedgerId, CONFIG.ckbtc_ledgerIDL);
+      
+      // Prepare approval args
+      const approvalArgs = {
+        spender: { 
+          owner: Principal.fromText(spenderCanisterId), 
+          subaccount: [] 
+        },
+        amount: amount,
+        expires_at: [],
+        fee: [],
+        memo: [],
+        from_subaccount: [],
+        created_at_time: []
+      };
+      
+      console.log(`Approving ${Number(amount) / E8S} ckBTC for spender: ${spenderCanisterId}`);
+      
+      const result = await ckbtcActor.icrc2_approve(approvalArgs);
+      
+      if ('Ok' in result) {
+        console.log(`✓ ckBTC approval successful. Block index: ${result.Ok}`);
+        return { success: true };
+      } else {
+        console.error('ckBTC approval failed:', result.Err);
+        return { 
+          success: false, 
+          error: `ckBTC approval failed: ${JSON.stringify(result.Err)}` 
+        };
+      }
+    } catch (err) {
+      console.error('Error approving ckBTC transfer:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Unknown error during ckBTC approval' 
+      };
+    }
+  }
+
+  /**
    * Check current ICP allowance for the protocol canister
    */
   static async checkIcpAllowance(spenderCanisterId: string): Promise<bigint> {
@@ -278,12 +360,16 @@ export class walletOperations {
       const walletState = get(walletStore);
       
       if (!walletState.isConnected || !walletState.principal) {
-        return { icp: 0, icusd: 0 };
+        return { icp: 0, ckbtc: 0, icusd: 0 };
       }
       
       // Start with values from tokenBalances if available
       let icpBalance = walletState.tokenBalances?.ICP?.raw 
         ? Number(walletState.tokenBalances.ICP.raw) / E8S 
+        : 0;
+      
+      let ckbtcBalance = walletState.tokenBalances?.CKBTC?.raw
+        ? Number(walletState.tokenBalances.CKBTC.raw) / E8S
         : 0;
         
       let icusdBalance = walletState.tokenBalances?.ICUSD?.raw
@@ -304,6 +390,19 @@ export class walletOperations {
         }
       }
       
+      if (ckbtcBalance === 0) {
+        try {
+          const ckbtcActor = await walletStore.getActor(CONFIG.currentCkbtcLedgerId, CONFIG.ckbtc_ledgerIDL);
+          const balance = await ckbtcActor.icrc1_balance_of({
+            owner: walletState.principal,
+            subaccount: []
+          });
+          ckbtcBalance = Number(balance) / E8S;
+        } catch (err) {
+          console.warn('Failed to fetch ckBTC balance:', err);
+        }
+      }
+
       if (icusdBalance === 0) {
         try {
           const icusdActor = await walletStore.getActor(CONFIG.currentIcusdLedgerId, CONFIG.icusd_ledgerIDL);
@@ -319,11 +418,12 @@ export class walletOperations {
       
       return {
         icp: icpBalance,
+        ckbtc: ckbtcBalance,
         icusd: icusdBalance
       };
     } catch (err) {
       console.error('Error getting user balances:', err);
-      return { icp: 0, icusd: 0 };
+      return { icp: 0, ckbtc: 0, icusd: 0 };
     }
   }
 }

@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { developerAccess } from '../../stores/developer';
   import type { Vault } from '../../services/types';
+  import { CollateralType } from '../../services/types';
   import { protocolService } from '../../services/protocol';
   import { createEventDispatcher } from 'svelte';
 
@@ -10,6 +11,7 @@
   // Proper typing for the vault prop
   export let vault: Vault;
   export let icpPrice: number = 0;
+  export let ckbtcPrice: number = 94500; // Default fallback
   export let showActions: boolean = true;
   
   const dispatch = createEventDispatcher<{
@@ -17,8 +19,15 @@
     manage: { vaultId: number };
   }>();
   
+  // Determine collateral type and related calculations
+  $: collateralType = vault.collateralType || CollateralType.ICP;
+  $: isIcp = collateralType === CollateralType.ICP;
+  $: collateralAmount = isIcp ? vault.icpMargin : vault.ckbtcMargin;
+  $: collateralPrice = isIcp ? icpPrice : ckbtcPrice;
+  $: collateralSymbol = isIcp ? 'ICP' : 'ckBTC';
+  
   // Calculate display values with proper reactivity
-  $: collateralValueUsd = vault.icpMargin * icpPrice;
+  $: collateralValueUsd = collateralAmount * collateralPrice;
   $: collateralRatio = vault.borrowedIcusd > 0 
     ? collateralValueUsd / vault.borrowedIcusd 
     : Infinity;
@@ -30,7 +39,7 @@
   
   // Format display values
   $: formattedCollateralValue = formatNumber(collateralValueUsd, 2);
-  $: formattedMargin = formatNumber(vault.icpMargin);
+  $: formattedMargin = formatNumber(collateralAmount, isIcp ? 4 : 8); // Different precision for ckBTC
   $: formattedBorrowedAmount = formatNumber(vault.borrowedIcusd);
   $: formattedMaxBorrowable = formatNumber(Math.max(0, maxBorrowable), 2);
   $: formattedCollateralRatio = collateralRatio === Infinity 
@@ -77,7 +86,7 @@
 
   $: isDeveloper = $developerAccess;
   // Check if collateral can be withdrawn (has collateral, no matter the debt)
-  $: hasCollateral = Number(vault.icpMargin) > 0;
+  $: hasCollateral = collateralAmount > 0;
 
   // Helper methods for handling vault interactions
   async function handleMint() {
@@ -180,9 +189,12 @@
     // Add debugging to check received data
     console.log(`VaultCard mounted for vault #${vault.vaultId}:`, {
       vaultId: vault.vaultId,
+      collateralType: vault.collateralType,
       icpMargin: vault.icpMargin,
+      ckbtcMargin: vault.ckbtcMargin,
       borrowedIcusd: vault.borrowedIcusd,
       typeof_icpMargin: typeof vault.icpMargin,
+      typeof_ckbtcMargin: typeof vault.ckbtcMargin,
       typeof_borrowedIcusd: typeof vault.borrowedIcusd
     });
   });
@@ -218,8 +230,8 @@
   <div class="p-5">
     <div class="grid grid-cols-2 gap-4 mb-4">
       <div>
-        <div class="text-sm text-gray-400 mb-1">Collateral</div>
-        <div class="text-lg font-semibold">{formattedMargin} ICP</div>
+        <div class="text-sm text-gray-400 mb-1">Collateral ({collateralSymbol})</div>
+        <div class="text-lg font-semibold">{formattedMargin} {collateralSymbol}</div>
         <div class="text-sm text-gray-400">${formattedCollateralValue}</div>
       </div>
       

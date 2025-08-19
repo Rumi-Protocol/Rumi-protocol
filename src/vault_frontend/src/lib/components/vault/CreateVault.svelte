@@ -7,12 +7,17 @@
   import { vaultStore } from '../../stores/vaultStore';
   import { safeLog } from '../../utils/bigint';
   import { BackendDebugService } from '../../services/backendDebug';
+  import { CollateralType } from '../../services/types';
+  import { priceService } from '../../services/priceService';
+  import { onMount } from 'svelte';
 
 
 
   export let icpPrice: number;
+  export let ckbtcPrice: number = 94500; // Default fallback price
   
   let collateralAmount = "";
+  let collateralType: CollateralType = CollateralType.ICP;
   let isCreating = false;
   let error = "";
   let showPasskeyInput = true; // Changed to true to show by default
@@ -42,10 +47,23 @@
   let cancelCheckRunning = false;
   let vaultCheckMode = false;
 
-  $: potentialUsdValue = Number(collateralAmount) * icpPrice;
+  $: currentPrice = collateralType === CollateralType.ICP ? icpPrice : ckbtcPrice;
+  $: potentialUsdValue = Number(collateralAmount) * currentPrice;
   $: isConnected = $walletStore.isConnected;
   $: isDeveloper = $developerAccess;
+  $: collateralSymbol = collateralType === CollateralType.ICP ? 'ICP' : 'ckBTC';
+  $: minAmount = collateralType === CollateralType.ICP ? 0.001 : 0.00001;
 
+
+  onMount(async () => {
+    // Fetch current ckBTC price
+    try {
+      ckbtcPrice = await priceService.getCurrentCkbtcPrice();
+    } catch (err) {
+      console.warn('Failed to fetch ckBTC price:', err);
+      // Keep default price
+    }
+  });
 
   onDestroy(() => {
     if (processingTimeout) {
@@ -146,13 +164,21 @@
         return false;
       }
       
-      // Check wallet balance
-      updateStatus('Checking balance...');
-      const hasBalance = await protocolService.checkIcpAllowance(amount.toString());
-      if (!hasBalance) {
-        error = `Insufficient ICP balance. Required: ${amount} ICP`;
+      if (amount < minAmount) {
+        error = `Amount too low. Minimum: ${minAmount} ${collateralSymbol}`;
         return false;
       }
+      
+      // Check wallet balance (only for ICP for now)
+      updateStatus('Checking balance...');
+      if (collateralType === CollateralType.ICP) {
+        const hasBalance = await protocolService.checkIcpAllowance(amount.toString());
+        if (!hasBalance) {
+          error = `Insufficient ICP balance. Required: ${amount} ICP`;
+          return false;
+        }
+      }
+      // TODO: Add ckBTC balance checking when wallet integration is complete
       
       return true;
     } catch (err) {
@@ -256,14 +282,17 @@
       startProcessingTimer();
       
       // Broken down steps for better troubleshooting
-      updateStatus('Requesting ICP approval...');
+      updateStatus(`Requesting ${collateralSymbol} approval...`);
       
       // Convert amount
       const amount = Number(collateralAmount); 
-      console.log('Creating vault with collateral:', amount);
+      console.log(`Creating vault with ${amount} ${collateralSymbol} collateral`);
       
-      // Create vault with longer timeouts
-      const result = await protocolService.openVault(amount);
+      // Create vault with collateral type
+      const result = await protocolService.openVault({
+        collateralAmount: amount,
+        collateralType: collateralType
+      });
       
       // Success handling
       console.log('Vault creation succeeded:', result);
@@ -283,7 +312,7 @@
       // Better error categorization
       if (err instanceof Error) {
         if (err.message.includes('approval timeout')) {
-          error = "ICP approval timed out. Please try again.";
+          error = `${collateralSymbol} approval timed out. Please try again.`;
         } else if (err.message.includes('busy') || err.message.includes('AlreadyProcessing')) {
           error = "System is busy processing another request. Please wait and try again.";
           handleRetryLogic(err);
@@ -506,23 +535,53 @@
     <h2 class="text-2xl font-bold mb-4">Create New Vault</h2>
   
     <div class="space-y-4">
+      <!-- Collateral Type Selector -->
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-2">
+          Collateral Type
+        </label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input 
+              type="radio" 
+              bind:group={collateralType} 
+              value={CollateralType.ICP}
+              class="text-purple-500 focus:ring-purple-500"
+            />
+            <span class="text-gray-300">ICP</span>
+            <span class="text-xs text-gray-500">(${icpPrice.toFixed(2)})</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input 
+              type="radio" 
+              bind:group={collateralType} 
+              value={CollateralType.CkBTC}
+              class="text-purple-500 focus:ring-purple-500"
+            />
+            <span class="text-gray-300">ckBTC</span>
+            <span class="text-xs text-gray-500">(${ckbtcPrice.toFixed(0)})</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Collateral Amount Input -->
       <div>
         <label for="vault-label" class="block text-sm font-medium text-gray-300 mb-1">
-          Collateral Amount (ICP)
+          Collateral Amount ({collateralSymbol})
         </label>
         <input
           id="vault-label"
           type="number"
           bind:value={collateralAmount}
-          placeholder="Enter ICP amount"
+          placeholder={`Enter ${collateralSymbol} amount (min: ${minAmount})`}
           class="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
           min="0"
-          step="0.1"
-          data-testid="icp-amount"
+          step={collateralType === CollateralType.ICP ? "0.1" : "0.00001"}
+          data-testid="collateral-amount"
         />
         {#if collateralAmount}
           <p class="mt-1 text-sm text-gray-400">
-            ≈ ${potentialUsdValue.toFixed(2)} USD
+            ≈ ${potentialUsdValue.toFixed(2)} USD at ${currentPrice.toFixed(collateralType === CollateralType.ICP ? 2 : 0)} USD/{collateralSymbol}
           </p>
         {/if}
       </div>

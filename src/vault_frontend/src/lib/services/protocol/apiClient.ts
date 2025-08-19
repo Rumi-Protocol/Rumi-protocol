@@ -25,8 +25,10 @@ import type {
   VaultOperationResult, 
   FeesDTO, 
   LiquidityStatusDTO,
-  CandidVault 
+  CandidVault,
+  CreateVaultParams
 } from '../types';
+import { CollateralType } from '../types';
 import { protocolService } from '../protocol';
 
 
@@ -34,6 +36,7 @@ import { protocolService } from '../protocol';
 // Constants from backend
 export const E8S = 100_000_000;
 export const MIN_ICP_AMOUNT = 100_000; // 0.001 ICP
+export const MIN_CKBTC_AMOUNT = 1000; // 0.00001 ckBTC (1000 satoshi)
 export const MIN_ICUSD_AMOUNT = 500_000_000; // 5 icUSD (changed from 10)
 export const MINIMUM_COLLATERAL_RATIO = 1.33; // 133%
 export const RECOVERY_COLLATERAL_RATIO = 1.5; // 150%
@@ -374,19 +377,25 @@ private static async refreshVaultData(): Promise<void> {
   }
 
     /**
-     * Open a new vault with ICP collateral
+     * Open a new vault with specified collateral type and amount
      */
-    static async openVault(icpAmount: number): Promise<VaultOperationResult> {
+    static async openVault(params: CreateVaultParams): Promise<VaultOperationResult> {
         // Keep track of ongoing request
         let abortController: AbortController | null = null;
         
         try {
-          console.log(`Creating vault with ${icpAmount} ICP`);
+          const { collateralAmount, collateralType } = params;
+          console.log(`Creating vault with ${collateralAmount} ${collateralType}`);
           
-          if (icpAmount * E8S < MIN_ICP_AMOUNT) {
+          // Validate minimum amounts based on collateral type
+          const minAmount = collateralType === CollateralType.ICP ? MIN_ICP_AMOUNT : MIN_CKBTC_AMOUNT;
+          const amountE8s = BigInt(Math.floor(collateralAmount * E8S));
+          
+          if (Number(amountE8s) < minAmount) {
+            const minDisplay = minAmount / E8S;
             return {
               success: false,
-              error: `Amount too low. Minimum required: ${MIN_ICP_AMOUNT / E8S} ICP`
+              error: `Amount too low. Minimum required: ${minDisplay} ${collateralType}`
             };
           }
           
@@ -406,21 +415,22 @@ private static async refreshVaultData(): Promise<void> {
           // Enhanced error handling for wallet signer issues
           try {
             const actor = await ApiClient.getAuthenticatedActor();
-            const amountE8s = BigInt(Math.floor(icpAmount * E8S));
             
             // CRITICAL: Check and increase allowance before proceeding
             const spenderCanisterId = CONFIG.currentCanisterId;
             
-            // First check current allowance
-            const currentAllowance = await walletOperations.checkIcpAllowance(spenderCanisterId);
-            console.log(`Current allowance for protocol canister: ${Number(currentAllowance) / E8S} ICP`);
-            
-            // If allowance is insufficient, request approval
-            if (currentAllowance < amountE8s) {
-              console.log(`Requesting approval for ${icpAmount} ICP`);
+            // Handle allowance checking based on collateral type
+            if (collateralType === CollateralType.ICP) {
+              // First check current ICP allowance
+              const currentAllowance = await walletOperations.checkIcpAllowance(spenderCanisterId);
+              console.log(`Current ICP allowance for protocol canister: ${Number(currentAllowance) / E8S} ICP`);
               
-              // Use a higher allowance (5% more than needed) to avoid small rounding issues
-              const requestedAllowance = amountE8s * 105n / 100n;
+              // If allowance is insufficient, request approval
+              if (currentAllowance < amountE8s) {
+                console.log(`Requesting ICP approval for ${collateralAmount} ICP`);
+                
+                // Use a higher allowance (5% more than needed) to avoid small rounding issues
+                const requestedAllowance = amountE8s * 105n / 100n;
               
               const approvalResult = await walletOperations.approveIcpTransfer(requestedAllowance, spenderCanisterId);
               
@@ -431,7 +441,31 @@ private static async refreshVaultData(): Promise<void> {
                 };
               }
               
-              console.log(`Successfully set allowance to ${Number(requestedAllowance) / E8S} ICP`);
+              console.log(`Successfully set ICP allowance to ${Number(requestedAllowance) / E8S} ICP`);
+              }
+            } else if (collateralType === CollateralType.CkBTC) {
+              // First check current ckBTC allowance
+              const currentAllowance = await walletOperations.checkCkbtcAllowance(spenderCanisterId);
+              console.log(`Current ckBTC allowance for protocol canister: ${Number(currentAllowance) / E8S} ckBTC`);
+              
+              // If allowance is insufficient, request approval
+              if (currentAllowance < amountE8s) {
+                console.log(`Requesting ckBTC approval for ${collateralAmount} ckBTC`);
+                
+                // Use a higher allowance (5% more than needed) to avoid small rounding issues
+                const requestedAllowance = amountE8s * 105n / 100n;
+                
+                const approvalResult = await walletOperations.approveCkbtcTransfer(requestedAllowance, spenderCanisterId);
+                
+                if (!approvalResult.success) {
+                  return {
+                    success: false,
+                    error: approvalResult.error || "Failed to approve ckBTC transfer"
+                  };
+                }
+                
+                console.log(`Successfully set ckBTC allowance to ${Number(requestedAllowance) / E8S} ckBTC`);
+              }
             }
             
             // Add a timeout to catch hanging signatures
@@ -441,7 +475,7 @@ private static async refreshVaultData(): Promise<void> {
             
             // Race between the actual operation and the timeout
             const result = await Promise.race([
-              actor.open_vault(amountE8s),
+              actor.open_vault(amountE8s, { [collateralType]: null }),
               timeoutPromise
             ]);
             
@@ -474,7 +508,7 @@ private static async refreshVaultData(): Promise<void> {
                   errMsg.includes('insufficient allowance')) {
                 return {
                   success: false,
-                  error: "Insufficient ICP allowance. Please try again to approve the required amount."
+                  error: `Insufficient ${collateralType} allowance. Please try again to approve the required amount.`
                 };
               }
               
@@ -964,16 +998,20 @@ static async repayToVault(vaultId: number, icusdAmount: number): Promise<VaultOp
         
         // CRITICAL FIX: Convert bigint values properly to numbers with scaling
         // Use Number() constructor instead of potentially problematic division
-        const icpMargin = Number(v.icp_margin_amount) / E8S;
+        const icpMargin = Number(v.icp_margin_amount || 0) / E8S;
+        const ckbtcMargin = Number(v.ckbtc_margin_amount || 0) / E8S;
         const borrowedIcusd = Number(v.borrowed_icusd_amount) / E8S;
+        const collateralType = v.collateral_type || CollateralType.ICP;
         
-        console.log(`Processing vault #${vaultId}: ICP=${icpMargin}, icUSD=${borrowedIcusd}`);
+        console.log(`Processing vault #${vaultId}: ${collateralType}=${collateralType === CollateralType.ICP ? icpMargin : ckbtcMargin}, icUSD=${borrowedIcusd}`);
         
         vaults.push({
           vaultId,
           owner: v.owner.toString(),
           icpMargin,
+          ckbtcMargin,
           borrowedIcusd,
+          collateralType,
           timestamp: now
         });
       }

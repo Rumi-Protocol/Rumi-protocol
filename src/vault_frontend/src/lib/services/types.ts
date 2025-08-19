@@ -2,6 +2,12 @@ import type { Principal } from '@dfinity/principal';
 
 const E8S = 100_000_000;
 
+// Collateral type enum to match backend
+export enum CollateralType {
+  ICP = 'ICP',
+  CkBTC = 'CkBTC'
+}
+
 // Liquidity provider status
 export interface LiquidityStatus {
   liquidityProvided: number;
@@ -35,7 +41,14 @@ export interface VaultHistoryEvent {
 
 export interface UserBalances {
   icp: number;
+  ckbtc: number;
   icusd: number;
+}
+
+// Interface for creating vaults with collateral type
+export interface CreateVaultParams {
+  collateralAmount: number;
+  collateralType: CollateralType;
 }
 
 // Fees returned to the frontend
@@ -49,7 +62,9 @@ export interface VaultDTO {
   vaultId: number;
   owner: string;
   icpMargin: number;
+  ckbtcMargin: number;
   borrowedIcusd: number;
+  collateralType: CollateralType;
   timestamp?: number;
 }
 
@@ -61,6 +76,8 @@ export interface CandidVault {
   owner: string;
   borrowed_icusd_amount: number;
   icp_margin_amount: number;
+  ckbtc_margin_amount: number;
+  collateral_type: CollateralType;
 }
 
 // Liquidity status as returned to the frontend
@@ -78,9 +95,12 @@ export type Vault = VaultDTO;
 export interface ProtocolStatusDTO {
   mode: any;
   totalIcpMargin: number;
+  totalCkbtcMargin: number;
   totalIcusdBorrowed: number;
   lastIcpRate: number;
   lastIcpTimestamp: number;
+  lastCkbtcRate: number;
+  lastCkbtcTimestamp: number;
   totalCollateralRatio: number;
 }
 
@@ -90,7 +110,9 @@ export interface EnhancedVault {
   vaultId: number;
   owner: string;
   icpMargin: number;
+  ckbtcMargin: number;
   borrowedIcusd: number;
+  collateralType: CollateralType;
   timestamp: number;
   lastUpdated: number;
   collateralRatio?: number;

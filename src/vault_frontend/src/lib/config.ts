@@ -1,12 +1,14 @@
 import { idlFactory as rumi_backendIDL } from '../../../declarations/test_rumi_protocol_backend/test_rumi_protocol_backend.did.js';
 import { idlFactory as icp_ledgerIDL } from '../../../declarations/icp_ledger/icp_ledger.did.js';
 import { idlFactory as icusd_ledgerIDL } from '../../../declarations/icusd_ledger/icusd_ledger.did.js';
+import { idlFactory as ckbtc_ledgerIDL } from '../idls/ledger.idl.js';
 
 // Canister IDs for production
 export const CANISTER_IDS = {
   PROTOCOL: "aakb7-rqaaa-aaaai-q3oua-cai",
   ICP_LEDGER: "ryjl3-tyaaa-aaaaa-aaaba-cai",
   ICUSD_LEDGER: "4kejc-maaaa-aaaai-q3tqq-cai",
+  CKBTC_LEDGER: "mxzaz-hqaaa-aaaar-qaada-cai", // ckBTC mainnet ledger ID
 } as const;
 
 // Canister IDs for local development
@@ -14,6 +16,7 @@ export const LOCAL_CANISTER_IDS = {
   PROTOCOL: "aakb7-rqaaa-aaaai-q3oua-cai",
   ICP_LEDGER: "ryjl3-tyaaa-aaaaa-aaaba-cai",
   ICUSD_LEDGER: "4kejc-maaaa-aaaai-q3tqq-cai",
+  CKBTC_LEDGER: "mxzaz-hqaaa-aaaar-qaada-cai", // Use same for local development
 } as const;
 
 // Frontend canister ID
@@ -37,6 +40,11 @@ export const CONFIG = {
   currentIcusdLedgerId: process.env.DFX_NETWORK !== 'ic'
     ? LOCAL_CANISTER_IDS.ICUSD_LEDGER
     : CANISTER_IDS.ICUSD_LEDGER,
+  
+  // ckBTC ledger ID configuration
+  currentCkbtcLedgerId: process.env.DFX_NETWORK !== 'ic'
+    ? LOCAL_CANISTER_IDS.CKBTC_LEDGER
+    : CANISTER_IDS.CKBTC_LEDGER,
   
   // Configure the host based on environment
   host: process.env.DFX_NETWORK === 'ic' 
@@ -69,5 +77,6 @@ export const CONFIG = {
   // Export IDLs through config for convenience
   rumi_backendIDL,
   icp_ledgerIDL,
-  icusd_ledgerIDL
+  icusd_ledgerIDL,
+  ckbtc_ledgerIDL
 };

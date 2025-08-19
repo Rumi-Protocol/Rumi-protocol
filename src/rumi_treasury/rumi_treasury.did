@@ -1,0 +1,72 @@
+type AssetType = variant {
+  ICUSD;
+  ICP;
+  CKBTC;
+};
+
+type DepositType = variant {
+  MintingFee;
+  RedemptionFee;
+  LiquidationSurplus;
+  StabilityFee;
+};
+
+type AssetBalance = record {
+  total: nat64;
+  reserved: nat64;
+  available: nat64;
+};
+
+type DepositRecord = record {
+  id: nat64;
+  deposit_type: DepositType;
+  asset_type: AssetType;
+  amount: nat64;
+  block_index: nat64;
+  timestamp: nat64;
+  memo: opt text;
+};
+
+type TreasuryStatus = record {
+  total_deposits: nat64;
+  balances: vec record { AssetType; AssetBalance };
+  controller: principal;
+  is_paused: bool;
+};
+
+type TreasuryInitArgs = record {
+  controller: principal;
+  icusd_ledger: principal;
+  icp_ledger: principal;
+  ckbtc_ledger: opt principal;
+};
+
+type DepositArgs = record {
+  deposit_type: DepositType;
+  asset_type: AssetType;
+  amount: nat64;
+  block_index: nat64;
+  memo: opt text;
+};
+
+type WithdrawArgs = record {
+  asset_type: AssetType;
+  amount: nat64;
+  to: principal;
+  memo: opt text;
+};
+
+type WithdrawResult = record {
+  block_index: nat64;
+  amount_transferred: nat64;
+  fee: nat64;
+};
+
+service : (TreasuryInitArgs) -> {
+  deposit: (DepositArgs) -> (variant { Ok : nat64; Err : text });
+  withdraw: (WithdrawArgs) -> (variant { Ok : WithdrawResult; Err : text });
+  get_status: () -> (TreasuryStatus) query;
+  get_deposits: (opt nat64, opt nat64) -> (vec DepositRecord) query;
+  set_controller: (principal) -> (variant { Ok; Err : text });
+  set_paused: (bool) -> (variant { Ok; Err : text });
+}

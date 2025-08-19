@@ -8,7 +8,8 @@
         {
           "name": "candid:service"
         }
-      ]
+      ],
+      "init_arg": "(variant { Init = record { xrc_principal = principal \"uf6dk-hyaaa-aaaaq-qaaaq-cai\"; icusd_ledger_principal = principal \"u6s2n-gx777-77774-qaaba-cai\"; icp_ledger_principal = principal \"uxrrr-q7777-77774-qaaaq-cai\"; fee_e8s = 100000; developer_principal = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; treasury_principal = null; } })"
     },
     "rumi_protocol_frontend": {
       "dependencies": [
@@ -33,13 +34,30 @@
         "candid": "src/ledger/ledger.did",
         "type": "custom",
         "wasm": "src/ledger/ic-icrc1-ledger.wasm",
-        "shrink": false
+        "shrink": false,
+        "init_arg": "(variant { Init = record { token_name = \"icUSD\"; token_symbol = \"icUSD\"; minting_account = record { owner = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; initial_balances = vec {}; metadata = vec {}; transfer_fee = 100_000; archive_options = record { trigger_threshold = 1000; num_blocks_to_archive = 1000; controller_id = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; }})"
     },
     "icp_ledger": {
         "candid": "src/ledger/ledger.did",
         "type": "custom",
         "wasm": "src/ledger/ic-icrc1-ledger.wasm",
-        "shrink": false
+        "shrink": false,
+        "init_arg": "(variant { Init = record { token_name = \"Internet Computer Protocol\"; token_symbol = \"ICP\"; minting_account = record { owner = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; initial_balances = vec {}; metadata = vec {}; transfer_fee = 10_000; archive_options = record { trigger_threshold = 1000; num_blocks_to_archive = 1000; controller_id = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; }})"
+    },
+    "rumi_treasury": {
+      "candid": "src/rumi_treasury/rumi_treasury.did",
+      "package": "rumi_treasury",
+      "type": "rust",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ],
+      "init_arg": "(record { controller = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; icusd_ledger = principal \"u6s2n-gx777-77774-qaaba-cai\"; icp_ledger = principal \"uxrrr-q7777-77774-qaaaq-cai\"; ckbtc_ledger = null; })"
+    },
+    "xrc": {
+      "type": "pull",
+      "id": "uf6dk-hyaaa-aaaaq-qaaaq-cai"
     }
   },
   "defaults": {

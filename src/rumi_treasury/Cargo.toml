@@ -1,0 +1,20 @@
+[package]
+name = "rumi_treasury"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = "0.10"
+ic-cdk = "0.12"
+ic-stable-structures = "0.6"
+icrc-ledger-types = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+rust_decimal = "1.32"
+rust_decimal_macros = "1.32"
+ic-canister-log = "0.2"
+
+[features]
+default = []

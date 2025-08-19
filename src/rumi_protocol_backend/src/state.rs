@@ -2,9 +2,9 @@ use crate::numeric::{Ratio, UsdIcp, ICUSD, ICP};
 use crate::vault::Vault;
 use crate::{
     compute_collateral_ratio, InitArg, ProtocolError, UpgradeArg, MINIMUM_COLLATERAL_RATIO,
-    RECOVERY_COLLATERAL_RATIO, INFO, SEC_NANOS,
+    RECOVERY_COLLATERAL_RATIO, INFO, DEBUG, SEC_NANOS,
 };
-use candid::Principal;
+use candid::{CandidType, Deserialize, Principal};
 use ic_canister_log::log;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -15,6 +15,31 @@ use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use crate::guard::OperationState;
+
+// Treasury integration types
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum TreasuryFeeType {
+    MintingFee,
+    RedemptionFee,
+    LiquidationSurplus,
+    StabilityFee,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum TreasuryAssetType {
+    ICUSD,
+    ICP,
+    CKBTC,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct TreasuryDepositArgs {
+    pub deposit_type: TreasuryFeeType,
+    pub asset_type: TreasuryAssetType,
+    pub amount: u64,
+    pub block_index: u64,
+    pub memo: Option<String>,
+}
 
 // Like assert_eq, but returns an error instead of panicking.
 macro_rules! ensure_eq {
@@ -110,6 +135,7 @@ pub struct State {
     pub mode: Mode,
     pub fee: Ratio,
     pub developer_principal: Principal,
+    pub treasury_principal: Option<Principal>,
     pub next_available_vault_id: u64,
     pub total_collateral_ratio: Ratio,
     pub current_base_rate: Ratio,
@@ -138,6 +164,7 @@ impl From<InitArg> for State {
             current_base_rate: Ratio::from(Decimal::ZERO),
             fee: Ratio::from(fee),
             developer_principal: args.developer_principal,
+            treasury_principal: args.treasury_principal,
             principal_to_vault_ids: BTreeMap::new(),
             pending_redemption_transfer: BTreeMap::new(),
             vault_id_to_vaults: BTreeMap::new(),
@@ -234,6 +261,68 @@ impl State {
             Mode::Recovery => Ratio::from(Decimal::ZERO),
             Mode::GeneralAvailability => self.fee,
             Mode::ReadOnly => self.fee,
+        }
+    }
+
+    /// Route fees to treasury (if configured)
+    pub async fn route_fee_to_treasury(
+        &self,
+        fee_type: TreasuryFeeType,
+        asset_type: TreasuryAssetType, 
+        amount: u64,
+        block_index: u64,
+        memo: Option<String>,
+    ) -> Result<(), String> {
+        if let Some(treasury_principal) = self.treasury_principal {
+            // Call treasury deposit function
+            let deposit_args = TreasuryDepositArgs {
+                deposit_type: fee_type.clone(),
+                asset_type: asset_type.clone(),
+                amount,
+                block_index,
+                memo,
+            };
+            
+            let call_result: Result<(Result<u64, String>,), _> = ic_cdk::call(
+                treasury_principal,
+                "deposit",
+                (deposit_args,),
+            ).await;
+
+            match call_result {
+                Ok((Ok(_deposit_id),)) => {
+                    log!(
+                        INFO,
+                        "[treasury] Successfully deposited {} {:?} to treasury as {:?}", 
+                        amount, asset_type, fee_type
+                    );
+                    Ok(())
+                }
+                Ok((Err(err),)) => {
+                    log!(
+                        DEBUG,
+                        "[treasury] Treasury deposit failed: {}", 
+                        err
+                    );
+                    Err(format!("Treasury deposit failed: {}", err))
+                }
+                Err(call_err) => {
+                    log!(
+                        DEBUG,
+                        "[treasury] Failed to call treasury: {:?}", 
+                        call_err
+                    );
+                    Err(format!("Failed to call treasury: {:?}", call_err))
+                }
+            }
+        } else {
+            // Treasury not configured, just log the fee
+            log!(
+                INFO,
+                "[treasury] No treasury configured, would deposit {} {:?} as {:?}",
+                amount, asset_type, fee_type
+            );
+            Ok(())
         }
     }
 

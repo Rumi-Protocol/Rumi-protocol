@@ -5,11 +5,8 @@
   import { walletStore } from '$lib/stores/wallet';
   import { protocolService } from '$lib/services/protocol';
   import VaultDetails from '$lib/components/vault/VaultDetails.svelte';
-  import { isDevelopment } from '$lib/config';
-  import { permissionStore } from '$lib/stores/permissionStore';
   import type { EnhancedVault } from '$lib/services/types';
   import { vaultStore } from '$lib/stores/vaultStore';
-  import { developerAccess } from '$lib/stores/developer';
   
   // Get vault ID from URL params - with proper number parsing
   $: vaultId = parseInt($page.params.id) || 0;
@@ -22,43 +19,14 @@
   let error = '';
   let icpPrice = 0;
   
-  // Developer mode management
-  let showPasskeyInput = false;
-  let passkey = "";
-  let passkeyError = "";
-  
   // Subscribe to wallet state changes
   $: isConnected = $walletStore.isConnected;
   $: principal = $walletStore.principal;
-  
-  // Check for developer access
-  $: isDeveloperMode = isDevelopment || $permissionStore.isDeveloper;
-  
-  // Handle developer passkey submission
-  function handlePasskeySubmit() {
-    const isValid = developerAccess.checkPasskey(passkey);
-    if (isValid) {
-      passkeyError = '';
-      passkey = '';
-      showPasskeyInput = false;
-      // Load vault now that we have access
-      loadVault();
-    } else {
-      passkeyError = 'Invalid developer passkey';
-    }
-  }
   
   // Load vault data
   async function loadVault() {
     if (!isConnected) {
       goto('/');
-      return;
-    }
-    
-    // Check for developer access
-    if (!isDeveloperMode) {
-      error = 'Developer access required';
-      isLoading = false;
       return;
     }
     
@@ -100,8 +68,8 @@
   }
   
   onMount(() => {
-    // Load vault if we already have developer access
-    if (isDeveloperMode) {
+    // Load vault data if connected
+    if (isConnected) {
       loadVault();
     }
   });
@@ -127,51 +95,7 @@
     <p class="text-gray-400">Manage your collateral and debt position</p>
   </div>
   
-  {#if !isDeveloperMode}
-    <!-- Developer Access Required Section -->
-    <div class="bg-gray-900/50 p-6 rounded-lg shadow-lg backdrop-blur-sm border border-purple-500/30">
-      <div class="flex items-center gap-2 mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-        </svg>
-        <h2 class="text-2xl font-semibold">Developer Access Required</h2>
-      </div>
-      
-      <p class="text-gray-300 mb-6">
-        The vault details feature is currently in development. Please enter your developer passkey to continue.
-      </p>
-      
-      {#if showPasskeyInput}
-        <div class="mb-4">
-          <div class="flex gap-2">
-            <input 
-              type="password" 
-              bind:value={passkey} 
-              placeholder="Enter developer passkey"
-              class="flex-grow p-2 bg-gray-800 rounded border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              on:keydown={(e) => e.key === 'Enter' && handlePasskeySubmit()}
-            />
-            <button 
-              class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-md"
-              on:click={handlePasskeySubmit}
-            >
-              Submit
-            </button>
-          </div>
-          {#if passkeyError}
-            <p class="text-red-400 text-sm mt-2">{passkeyError}</p>
-          {/if}
-        </div>
-      {:else}
-        <button
-          class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-md"
-          on:click={() => showPasskeyInput = true}
-        >
-          Enter Developer Mode
-        </button>
-      {/if}
-    </div>
-  {:else if isLoading}
+  {#if isLoading}
     <div class="flex justify-center p-12">
       <div class="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
     </div>
@@ -189,20 +113,6 @@
       </div>
     </div>
   {:else if vault}
-    <!-- Developer Mode Indicator -->
-    <div class="flex justify-end mb-4">
-      <div class="bg-purple-900/30 px-3 py-1 rounded-full text-xs text-purple-300 flex items-center gap-2">
-        <span class="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></span> 
-        Developer Mode
-        <button 
-          class="text-xs text-purple-400 hover:text-purple-300 ml-1"
-          on:click={() => developerAccess.clearAccess()}
-        >
-          Exit
-        </button>
-      </div>
-    </div>
-    
     <VaultDetails vaultId={vault.vaultId} icpPrice={icpPrice} />
   {/if}
 </div>

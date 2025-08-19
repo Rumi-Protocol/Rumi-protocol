@@ -105,8 +105,8 @@ function createPermissionStore() {
         const permissions: PermissionState = {
           // Basic permissions that any connected wallet has
           canCreateVault: true,
-          // More granular permissions that might depend on user role
-          canViewVaults: isDev || isAdmin,
+          // Allow all connected users to view their vaults
+          canViewVaults: true,
           canUseAdminTools: isAdmin,
           // Roles
           isAdmin: isAdmin,

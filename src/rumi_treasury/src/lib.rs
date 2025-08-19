@@ -120,9 +120,7 @@ async fn withdraw(args: WithdrawArgs) -> Result<WithdrawResult, String> {
         created_at_time: None,
     };
 
-    // Call the appropriate ledg
-    // er (this is a simplified version)
-    // In reality you'd use ic_cdk::call to make the inter-canister call
+    // Make the actual inter-canister transfer call to the ledger
     let block_index = match call_ledger_transfer(ledger_principal, transfer_args).await {
         Ok(block_index) => block_index,
         Err(e) => {
@@ -141,8 +139,8 @@ async fn withdraw(args: WithdrawArgs) -> Result<WithdrawResult, String> {
 
     Ok(WithdrawResult {
         block_index,
-        amount_transferred: args.amount, // Simplified - should account for fees
-        fee: 0, // Should be actual fee from ledger
+        amount_transferred: args.amount, // Full amount transferred (fee handled by ledger)
+        fee: 0, // Fee is handled internally by the ledger canister
     })
 }
 

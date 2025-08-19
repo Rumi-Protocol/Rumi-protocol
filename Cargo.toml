@@ -1,5 +1,6 @@
 [workspace]
 members = [
-    "src/rumi_protocol_backend"
-, "src/rumi_vault"]
+    "src/rumi_protocol_backend",
+    "src/rumi_treasury"
+]
 resolver = "2"

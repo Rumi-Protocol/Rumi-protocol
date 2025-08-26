@@ -55,7 +55,7 @@ fn ensure_controller() -> Result<(), String> {
 #[update]
 #[candid_method(update)]
 async fn deposit(args: DepositArgs) -> Result<u64, String> {
-    ensure_controller()?;
+    // Anyone can deposit to treasury, only controller can withdraw
     
     // Check if treasury is paused
     let is_paused = with_state(|s| s.get_config().is_paused);

@@ -5,7 +5,7 @@ echo "================================="
 echo
 
 # Treasury Canister ID
-TREASURY_ID="uxrrr-q7777-77774-qaaaq-cai"
+TREASURY_ID="p4osj-vaaaa-aaaai-q33ea-cai"
 
 echo "📋 1. TREASURY STATUS CHECK"
 echo "---------------------------"

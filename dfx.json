@@ -9,7 +9,7 @@
           "name": "candid:service"
         }
       ],
-      "init_arg": "(variant { Init = record { xrc_principal = principal \"uf6dk-hyaaa-aaaaq-qaaaq-cai\"; icusd_ledger_principal = principal \"u6s2n-gx777-77774-qaaba-cai\"; icp_ledger_principal = principal \"uxrrr-q7777-77774-qaaaq-cai\"; fee_e8s = 100000; developer_principal = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; treasury_principal = null; } })"
+      "init_arg": "(variant { Init = record { xrc_principal = principal \"uf6dk-hyaaa-aaaaq-qaaaq-cai\"; icusd_ledger_principal = principal \"u6s2n-gx777-77774-qaaba-cai\"; icp_ledger_principal = principal \"uxrrr-q7777-77774-qaaaq-cai\"; fee_e8s = 100000; developer_principal = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; treasury_principal = opt principal \"p4osj-vaaaa-aaaai-q33ea-cai\"; } })"
     },
     "rumi_protocol_frontend": {
       "dependencies": [
@@ -53,7 +53,7 @@
           "name": "candid:service"
         }
       ],
-      "init_arg": "(record { controller = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; icusd_ledger = principal \"u6s2n-gx777-77774-qaaba-cai\"; icp_ledger = principal \"uxrrr-q7777-77774-qaaaq-cai\"; ckbtc_ledger = null; })"
+      "init_arg": "(record { controller = principal \"wrppb-amng2-jzskb-wcmam-mwrmi-ci52r-bkkre-tzu35-hjfpb-dnl4p-6qe\"; icusd_ledger = principal \"4kejc-maaaa-aaaai-q3tqq-cai\"; icp_ledger = principal \"ryjl3-tyaaa-aaaaa-aaaba-cai\"; ckbtc_ledger = opt principal \"mxzaz-hqaaa-aaaar-qaada-cai\"; })"
     },
     "xrc": {
       "type": "pull",

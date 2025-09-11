@@ -1642,6 +1642,254 @@ static async withdrawCollateralAndCloseVault(vaultId: number): Promise<VaultOper
       }, vaultId); // Pass vaultId to ensure proper operation tracking
     }
 
+    /**
+     * Partially repay icUSD to a vault
+     * @param vaultId The ID of the vault to repay
+     * @param icusdAmount The amount of icUSD to repay (can be less than full debt)
+     */
+    static async partialRepayToVault(vaultId: number, icusdAmount: number): Promise<VaultOperationResult> {
+      return ApiClient.executeSequentialOperation(async () => {
+        try {
+          console.log(`Partially repaying ${icusdAmount} icUSD to vault #${vaultId}`);
+          
+          if (icusdAmount * E8S < MIN_ICUSD_AMOUNT / 100) { // Lower limit for partial repayment
+            return {
+              success: false,
+              error: `Amount too low. Minimum partial repayment: ${MIN_ICUSD_AMOUNT / E8S / 100} icUSD`
+            };
+          }
+          
+          const amountE8s = BigInt(Math.floor(icusdAmount * E8S));
+          const spenderCanisterId = CONFIG.currentCanisterId;
+          
+          // Check current allowance
+          let currentAllowance;
+          try {
+            currentAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+            console.log('Current icUSD allowance:', currentAllowance.toString());
+          } catch (err) {
+            console.error('Error checking icUSD allowance:', err);
+            return {
+              success: false,
+              error: 'Failed to check token allowance. Please ensure your wallet is connected.'
+            };
+          }
+          
+          // Add a buffer to the approval amount (5% buffer is sufficient for icUSD)
+          const bufferAmount = amountE8s * BigInt(105) / BigInt(100);
+          
+          if (currentAllowance < amountE8s) {
+            console.log('Insufficient icUSD allowance, requesting approval...');
+            console.log(`Requesting ${bufferAmount} e8s (original: ${amountE8s} e8s)`);
+            
+            try {
+              const approvalResult = await protocolService.approveIcusdTransfer(
+                bufferAmount,  // Use buffered amount for approval
+                spenderCanisterId
+              );
+              
+              if (!approvalResult.success) {
+                return {
+                  success: false,
+                  error: approvalResult.error || 'Failed to approve icUSD transfer'
+                };
+              }
+              
+              // Short delay to allow approval to be processed
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Verify approval worked
+              const newAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+              console.log('New icUSD allowance after approval:', newAllowance.toString());
+              
+              if (newAllowance < amountE8s) {
+                return {
+                  success: false,
+                  error: `Approval did not complete successfully. Required: ${amountE8s}, Got: ${newAllowance}`
+                };
+              }
+            } catch (approvalErr) {
+              console.error('icUSD approval error:', approvalErr);
+              return {
+                success: false,
+                error: approvalErr instanceof Error ? 
+                  approvalErr.message : 'Unknown error during icUSD approval'
+              };
+            }
+          }
+          
+          // Now proceed with the partial repayment operation
+          const actor = await ApiClient.getAuthenticatedActor();
+          const vaultArg = {
+            vault_id: BigInt(vaultId),
+            amount: amountE8s  // Use the original (non-buffered) amount for the actual operation
+          };
+          
+          const result = await actor.partial_repay_to_vault(vaultArg);
+          
+          if ('Ok' in result) {
+            return {
+              success: true,
+              vaultId,
+              blockIndex: Number(result.Ok)
+            };
+          } else {
+            return {
+              success: false,
+              error: ApiClient.formatProtocolError(result.Err)
+            };
+          }
+        } catch (err) {
+          console.error('Error partially repaying to vault:', err);
+          return {
+            success: false,
+            error: err instanceof Error ? err.message : 'Unknown error partially repaying to vault'
+          };
+        }
+      }, vaultId); // Pass vaultId to ensure proper operation tracking
+    }
+
+    /**
+     * Partially liquidate a vault
+     * @param vaultId The ID of the vault to liquidate
+     * @param icusdAmount The amount of icUSD to pay for liquidation (can be less than full debt)
+     */
+    static async partialLiquidateVault(vaultId: number, icusdAmount: number): Promise<VaultOperationResult> {
+      return ApiClient.executeSequentialOperation(async () => {
+        try {
+          console.log(`Partially liquidating vault #${vaultId} with ${icusdAmount} icUSD`);
+          
+          if (icusdAmount * E8S < MIN_ICUSD_AMOUNT / 100) { // Lower limit for partial liquidation
+            return {
+              success: false,
+              error: `Amount too low. Minimum partial liquidation: ${MIN_ICUSD_AMOUNT / E8S / 100} icUSD`
+            };
+          }
+          
+          // First get the vault to check debt amount
+          const vaults = await ApiClient.getLiquidatableVaults();
+          const vault = vaults.find(v => Number(v.vault_id) === vaultId);
+          
+          if (!vault) {
+            return {
+              success: false,
+              error: "Vault not found or is not liquidatable"
+            };
+          }
+          
+          // Convert debt amount from bigint to number
+          const icusdDebt = Number(vault.borrowed_icusd_amount) / E8S;
+          console.log(`Vault #${vaultId} has debt of ${icusdDebt} icUSD`);
+          
+          // Validate that we're not trying to liquidate more than the debt
+          if (icusdAmount > icusdDebt) {
+            return {
+              success: false,
+              error: `Cannot liquidate more than the debt. Maximum liquidation amount: ${icusdDebt} icUSD`
+            };
+          }
+          
+          const amountE8s = BigInt(Math.floor(icusdAmount * E8S));
+          const spenderCanisterId = CONFIG.currentCanisterId;
+          
+          // Check current allowance
+          let currentAllowance;
+          try {
+            currentAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+            console.log('Current icUSD allowance:', currentAllowance.toString());
+          } catch (err) {
+            console.error('Error checking icUSD allowance:', err);
+            return {
+              success: false,
+              error: 'Failed to check token allowance. Please ensure your wallet is connected.'
+            };
+          }
+          
+          // Add a buffer to the approval amount (5% buffer is sufficient for icUSD)
+          const bufferAmount = amountE8s * BigInt(105) / BigInt(100);
+          
+          if (currentAllowance < amountE8s) {
+            console.log('Insufficient icUSD allowance, requesting approval...');
+            console.log(`Requesting ${bufferAmount} e8s (original: ${amountE8s} e8s)`);
+            
+            try {
+              const approvalResult = await protocolService.approveIcusdTransfer(
+                bufferAmount,  // Use buffered amount for approval
+                spenderCanisterId
+              );
+              
+              if (!approvalResult.success) {
+                return {
+                  success: false,
+                  error: approvalResult.error || 'Failed to approve icUSD transfer'
+                };
+              }
+              
+              // Short delay to allow approval to be processed
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Verify approval worked
+              const newAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+              console.log('New icUSD allowance after approval:', newAllowance.toString());
+              
+              if (newAllowance < amountE8s) {
+                return {
+                  success: false,
+                  error: `Approval did not complete successfully. Required: ${amountE8s}, Got: ${newAllowance}`
+                };
+              }
+            } catch (approvalErr) {
+              console.error('icUSD approval error:', approvalErr);
+              return {
+                success: false,
+                error: approvalErr instanceof Error ? 
+                  approvalErr.message : 'Unknown error during icUSD approval'
+              };
+            }
+          }
+          
+          // Now proceed with the partial liquidation operation
+          const actor = await ApiClient.getAuthenticatedActor();
+          const vaultArg = {
+            vault_id: BigInt(vaultId),
+            amount: amountE8s  // Use the original (non-buffered) amount for the actual operation
+          };
+          
+          const result = await actor.partial_liquidate_vault(vaultArg);
+          
+          if ('Ok' in result) {
+            return {
+              success: true,
+              vaultId,
+              blockIndex: Number(result.Ok.block_index),
+              feePaid: Number(result.Ok.fee_amount_paid) / E8S
+            };
+          } else {
+            return {
+              success: false,
+              error: ApiClient.formatProtocolError(result.Err)
+            };
+          }
+        } catch (err) {
+          console.error('Error partially liquidating vault:', err);
+          
+          // Check for specific underflow error and provide a better message
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          if (errorMessage.includes('underflow') && errorMessage.includes('numeric.rs')) {
+            return {
+              success: false,
+              error: "Partial liquidation failed due to a calculation error. The vault may have already been liquidated or its state has changed."
+            };
+          }
+          
+          return {
+            success: false,
+            error: err instanceof Error ? err.message : 'Unknown error partially liquidating vault'
+          };
+        }
+      }, vaultId); // Pass vaultId to ensure proper operation tracking
+    }
+
   /**
    * Clear all stale operation states
    */

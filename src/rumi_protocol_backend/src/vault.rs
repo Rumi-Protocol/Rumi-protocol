@@ -927,3 +927,192 @@ fn schedule_transfer_retry(vault_id: u64, retry_count: u32) {
         })
     });
 }
+
+pub async fn partial_repay_to_vault(arg: VaultArg) -> Result<u64, ProtocolError> {
+    let caller = ic_cdk::api::caller();
+    let guard_principal = GuardPrincipal::new(caller, &format!("partial_repay_vault_{}", arg.vault_id))?;
+    let amount: ICUSD = arg.amount.into();
+    let vault = read_state(|s| s.vault_id_to_vaults.get(&arg.vault_id).cloned().unwrap());
+
+    if caller != vault.owner {
+        guard_principal.fail();
+        return Err(ProtocolError::CallerNotOwner);
+    }
+
+    if amount < MIN_ICUSD_AMOUNT {
+        guard_principal.fail();
+        return Err(ProtocolError::AmountTooLow {
+            minimum_amount: MIN_ICUSD_AMOUNT.to_u64(),
+        });
+    }
+
+    if vault.borrowed_icusd_amount < amount {
+        guard_principal.fail();
+        return Err(ProtocolError::GenericError(format!(
+            "cannot repay more than borrowed: {} ICUSD, repay: {} ICUSD",
+            vault.borrowed_icusd_amount, amount
+        )));
+    }
+
+    match transfer_icusd_from(amount, caller).await {
+        Ok(block_index) => {
+            mutate_state(|s| record_repayed_to_vault(s, arg.vault_id, amount, block_index));
+            guard_principal.complete(); // Mark as completed
+            Ok(block_index)
+        }
+        Err(transfer_from_error) => {
+            guard_principal.fail(); // Mark as failed
+            Err(ProtocolError::TransferFromError(
+                transfer_from_error,
+                amount.to_u64(),
+            ))
+        }
+    }
+}
+
+pub async fn partial_liquidate_vault(arg: VaultArg) -> Result<SuccessWithFee, ProtocolError> {
+    let caller = ic_cdk::api::caller();
+    let guard_principal = GuardPrincipal::new(caller, &format!("partial_liquidate_vault_{}", arg.vault_id))?;
+    let liquidator_payment: ICUSD = arg.amount.into();
+    
+    // Step 1: Validate vault is liquidatable
+    let (vault, icp_rate, mode) = match read_state(|s| {
+        match s.vault_id_to_vaults.get(&arg.vault_id) {
+            Some(vault) => {
+                let icp_rate = s.last_icp_rate.expect("no icp rate");
+                let ratio = compute_collateral_ratio(vault, icp_rate);
+                
+                if ratio >= s.mode.get_minimum_liquidation_collateral_ratio() {
+                    Err(format!(
+                        "Vault #{} is not liquidatable. Current ratio: {}, minimum: {}",
+                        arg.vault_id, 
+                        ratio.to_f64(), 
+                        s.mode.get_minimum_liquidation_collateral_ratio().to_f64()
+                    ))
+                } else {
+                    Ok((vault.clone(), icp_rate, s.mode))
+                }
+            },
+            None => Err(format!("Vault #{} not found", arg.vault_id)),
+        }
+    }) {
+        Ok(result) => result,
+        Err(msg) => {
+            guard_principal.fail();
+            return Err(ProtocolError::GenericError(msg));
+        }
+    };
+
+    // Step 2: Validate liquidator payment amount
+    if liquidator_payment < MIN_ICUSD_AMOUNT {
+        guard_principal.fail();
+        return Err(ProtocolError::AmountTooLow {
+            minimum_amount: MIN_ICUSD_AMOUNT.to_u64(),
+        });
+    }
+
+    if liquidator_payment > vault.borrowed_icusd_amount {
+        guard_principal.fail();
+        return Err(ProtocolError::GenericError(format!(
+            "cannot liquidate more than borrowed: {} ICUSD, liquidate: {} ICUSD",
+            vault.borrowed_icusd_amount, liquidator_payment
+        )));
+    }
+
+    // Step 3: Calculate liquidation amounts with 10% discount
+    // Liquidator pays X icUSD, gets X/0.9 worth of ICP (10% discount)
+    let liquidation_bonus = Ratio::new(dec!(1.111111111)); // 1/0.9 = 1.111... (10% discount)
+    let icp_value_owed = liquidator_payment * liquidation_bonus;
+    let icp_to_liquidator = icp_value_owed / icp_rate;
+    
+    // Ensure we don't give more collateral than available
+    let actual_icp_to_liquidator = icp_to_liquidator.min(vault.icp_margin_amount);
+    
+    log!(INFO, 
+        "[partial_liquidate_vault] Vault #{}: liquidator pays {} icUSD, gets {} ICP (10% discount)",
+        arg.vault_id, 
+        liquidator_payment.to_u64(),
+        actual_icp_to_liquidator.to_u64()
+    );
+    
+    // Step 4: Take icUSD from liquidator
+    let icusd_block_index = match transfer_icusd_from(liquidator_payment, caller).await {
+        Ok(block_index) => {
+            log!(INFO, "[partial_liquidate_vault] Received {} icUSD from liquidator", liquidator_payment.to_u64());
+            block_index
+        },
+        Err(transfer_from_error) => {
+            guard_principal.fail();
+            return Err(ProtocolError::TransferFromError(transfer_from_error, liquidator_payment.to_u64()));
+        }
+    };
+    
+    // Step 5: Update protocol state ATOMICALLY
+    mutate_state(|s| {
+        // Reduce the vault's debt by the liquidator payment amount
+        if let Some(vault) = s.vault_id_to_vaults.get_mut(&arg.vault_id) {
+            vault.borrowed_icusd_amount -= liquidator_payment;
+            vault.icp_margin_amount -= actual_icp_to_liquidator;
+        }
+        
+        // Record the partial liquidation event
+        let event = crate::event::Event::PartialLiquidateVault {
+            vault_id: arg.vault_id,
+            liquidator_payment,
+            icp_to_liquidator: actual_icp_to_liquidator,
+            liquidator: caller,
+        };
+        crate::storage::record_event(&event);
+        
+        // Create pending transfer for liquidator reward
+        s.pending_margin_transfers.insert(
+            arg.vault_id, 
+            PendingMarginTransfer {
+                owner: caller,
+                margin: actual_icp_to_liquidator,
+            },
+        );
+        
+        log!(INFO, "[partial_liquidate_vault] Protocol state updated, pending transfer created");
+    });
+    
+    // Step 6: Attempt immediate transfer processing
+    log!(INFO, "[partial_liquidate_vault] Attempting immediate transfer processing...");
+    
+    match try_process_pending_transfers_immediate(arg.vault_id).await {
+        Ok(processed_count) => {
+            log!(INFO, "[partial_liquidate_vault] Successfully processed {} transfers immediately", processed_count);
+        },
+        Err(e) => {
+            log!(INFO, "[partial_liquidate_vault] Immediate processing failed: {}. Transfers will be retried via timer", e);
+            schedule_transfer_retry(arg.vault_id, 0);
+        }
+    }
+    
+    // Step 7: Schedule backup timer
+    ic_cdk_timers::set_timer(std::time::Duration::from_secs(2), move || {
+        ic_cdk::spawn(async move {
+            log!(INFO, "[partial_liquidate_vault] Backup timer processing transfers for vault #{}", arg.vault_id);
+            let _ = crate::process_pending_transfer().await;
+        })
+    });
+    
+    // Step 8: Liquidation is successful
+    guard_principal.complete();
+    
+    // Calculate fee (the 10% discount is the fee)
+    let liquidator_value_received = actual_icp_to_liquidator * icp_rate;
+    let fee_amount = if liquidator_value_received > liquidator_payment {
+        liquidator_value_received - liquidator_payment
+    } else {
+        ICUSD::new(0)
+    };
+    
+    log!(INFO, "[partial_liquidate_vault] Partial liquidation completed successfully. Block index: {}, Fee: {}", 
+         icusd_block_index, fee_amount.to_u64());
+    
+    Ok(SuccessWithFee {
+        block_index: icusd_block_index,
+        fee_amount_paid: fee_amount.to_u64(),
+    })
+}

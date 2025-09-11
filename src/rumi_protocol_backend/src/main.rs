@@ -347,6 +347,22 @@ async fn liquidate_vault(vault_id: u64) -> Result<SuccessWithFee, ProtocolError>
     check_postcondition(rumi_protocol_backend::vault::liquidate_vault(vault_id).await)
 }
 
+// Add the new partial repay vault endpoint
+#[candid_method(update)]
+#[update]
+async fn partial_repay_to_vault(arg: VaultArg) -> Result<u64, ProtocolError> {
+    validate_call()?;
+    check_postcondition(rumi_protocol_backend::vault::partial_repay_to_vault(arg).await)
+}
+
+// Add the new partial liquidate vault endpoint
+#[candid_method(update)]
+#[update]
+async fn partial_liquidate_vault(arg: VaultArg) -> Result<SuccessWithFee, ProtocolError> {
+    validate_call()?;
+    check_postcondition(rumi_protocol_backend::vault::partial_liquidate_vault(arg).await)
+}
+
 // Add the new get liquidatable vaults endpoint
 #[candid_method(query)]
 #[query]

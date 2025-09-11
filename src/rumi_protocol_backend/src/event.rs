@@ -29,6 +29,14 @@ pub enum Event {
         liquidator: Option<Principal>,
     },
 
+    #[serde(rename = "partial_liquidate_vault")]
+    PartialLiquidateVault {
+        vault_id: u64,
+        liquidator_payment: ICUSD,
+        icp_to_liquidator: ICP,
+        liquidator: Principal,
+    },
+
     #[serde(rename = "redemption_on_vaults")]
     RedemptionOnVaults {
         owner: Principal,
@@ -126,6 +134,7 @@ impl Event {
             Event::CloseVault { vault_id, .. } => vault_id == filter_vault_id,
             Event::MarginTransfer { vault_id, .. } => vault_id == filter_vault_id,
             Event::LiquidateVault { vault_id, .. } => vault_id == filter_vault_id,
+            Event::PartialLiquidateVault { vault_id, .. } => vault_id == filter_vault_id,
             Event::RedemptionOnVaults { .. } => true,
             Event::RedemptionTransfered { .. } => false,
             Event::RedistributeVault { vault_id, .. } => vault_id == filter_vault_id,
@@ -183,6 +192,18 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<State, ReplayLo
                 icp_rate,
                 liquidator: _,
             } => state.liquidate_vault(vault_id, mode, icp_rate),
+            Event::PartialLiquidateVault {
+                vault_id,
+                liquidator_payment,
+                icp_to_liquidator,
+                liquidator: _,
+            } => {
+                // Reduce vault debt and collateral
+                if let Some(vault) = state.vault_id_to_vaults.get_mut(&vault_id) {
+                    vault.borrowed_icusd_amount -= liquidator_payment;
+                    vault.icp_margin_amount -= icp_to_liquidator;
+                }
+            },
             Event::RedistributeVault { vault_id } => state.redistribute_vault(vault_id),
             Event::BorrowFromVault {
                 vault_id,

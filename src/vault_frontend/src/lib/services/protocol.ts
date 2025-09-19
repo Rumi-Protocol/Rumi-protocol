@@ -18,7 +18,10 @@ import { walletOperations } from './protocol/walletOperations';
 // Constants from backend
 const E8S = 100_000_000;
 const MIN_ICP_AMOUNT = 100_000; // 0.001 ICP
-const MIN_ICUSD_AMOUNT = 1_000_000_000; // 10 icUSD
+const MIN_ICUSD_AMOUNT = 100_000_000; // 1 icUSD (reduced from 5)
+const MIN_PARTIAL_REPAY_AMOUNT = 1_000_000; // 0.01 icUSD for partial repayments
+const MIN_PARTIAL_LIQUIDATION_AMOUNT = 1_000_000; // 0.01 icUSD for partial liquidations
+const DUST_THRESHOLD = 100; // 0.000001 icUSD - dust threshold for vault closing
 const MINIMUM_COLLATERAL_RATIO = 1.33; // 133%
 const RECOVERY_COLLATERAL_RATIO = 1.5; // 150%
 
@@ -45,6 +48,7 @@ export class ProtocolService {
   static borrowFromVault = ApiClient.borrowFromVault;
   static addMarginToVault = ApiClient.addMarginToVault;
   static repayToVault = ApiClient.repayToVault;
+  static partialRepayToVault = ApiClient.partialRepayToVault;
   static closeVault = ApiClient.closeVault;
   static getVaultHistory = ApiClient.getVaultHistory;
   static redeemIcp = ApiClient.redeemIcp;
@@ -57,6 +61,7 @@ export class ProtocolService {
   static claimLiquidityReturns = ApiClient.claimLiquidityReturns;
   static withdrawCollateralAndCloseVault = ApiClient.withdrawCollateralAndCloseVault;
   static liquidate_vault = ApiClient.liquidateVault;
+  static partialLiquidateVault = ApiClient.partialLiquidateVault;
   static getLiquidatableVaults = ApiClient.getLiquidatableVaults;
 
 

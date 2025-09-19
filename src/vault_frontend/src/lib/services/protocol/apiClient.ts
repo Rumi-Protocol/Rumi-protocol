@@ -34,7 +34,10 @@ import { protocolService } from '../protocol';
 // Constants from backend
 export const E8S = 100_000_000;
 export const MIN_ICP_AMOUNT = 100_000; // 0.001 ICP
-export const MIN_ICUSD_AMOUNT = 500_000_000; // 5 icUSD (changed from 10)
+export const MIN_ICUSD_AMOUNT = 100_000_000; // 1 icUSD (reduced from 5)
+export const MIN_PARTIAL_REPAY_AMOUNT = 1_000_000; // 0.01 icUSD for partial repayments
+export const MIN_PARTIAL_LIQUIDATION_AMOUNT = 1_000_000; // 0.01 icUSD for partial liquidations
+export const DUST_THRESHOLD = 100; // 0.000001 icUSD - dust threshold for vault closing
 export const MINIMUM_COLLATERAL_RATIO = 1.33; // 133%
 export const RECOVERY_COLLATERAL_RATIO = 1.5; // 150%
 
@@ -1759,10 +1762,10 @@ static async withdrawCollateralAndCloseVault(vaultId: number): Promise<VaultOper
         try {
           console.log(`Partially liquidating vault #${vaultId} with ${icusdAmount} icUSD`);
           
-          if (icusdAmount * E8S < MIN_ICUSD_AMOUNT / 100) { // Lower limit for partial liquidation
+          if (icusdAmount * E8S < MIN_PARTIAL_LIQUIDATION_AMOUNT) { // Use proper minimum for partial liquidation
             return {
               success: false,
-              error: `Amount too low. Minimum partial liquidation: ${MIN_ICUSD_AMOUNT / E8S / 100} icUSD`
+              error: `Amount too low. Minimum partial liquidation: ${MIN_PARTIAL_LIQUIDATION_AMOUNT / E8S} icUSD`
             };
           }
           

@@ -18,6 +18,7 @@
   let liquidationSuccess = "";
   let processingVaultId: number | null = null;
   let isApprovingAllowance = false;
+  let partialLiquidationAmounts: { [vaultId: number]: number } = {};
   
   $: isConnected = $wallet.isConnected;
   
@@ -234,6 +235,84 @@
     processingVaultId = null;
   }
 }
+
+// Partial liquidation function
+async function partialLiquidateVault(vaultId: number, liquidateAmount: number) {
+  if (!isConnected) {
+    liquidationError = "Please connect your wallet to liquidate vaults";
+    return;
+  }
+  
+  if (processingVaultId !== null) {
+    return; // Already processing a liquidation
+  }
+  
+  const vault = liquidatableVaults.find(v => v.vault_id === vaultId);
+  if (!vault) {
+    liquidationError = "Vault not found";
+    return;
+  }
+  
+  liquidationError = "";
+  liquidationSuccess = "";
+  processingVaultId = vaultId;
+  
+  try {
+    // Check if user has sufficient icUSD balance
+    const icusdBalance = await walletOperations.getIcusdBalance();
+    
+    if (icusdBalance < liquidateAmount) {
+      liquidationError = `Insufficient icUSD balance. You need ${formatNumber(liquidateAmount)} icUSD but have ${formatNumber(icusdBalance)} icUSD.`;
+      processingVaultId = null;
+      return;
+    }
+    
+    // Check and set allowance for icUSD with extra buffer
+    const allowanceApproved = await checkAndApproveAllowance(vaultId, liquidateAmount * 1.20);
+    if (!allowanceApproved) {
+      processingVaultId = null;
+      return;
+    }
+    
+    // Get latest vaults data before liquidation to ensure we have fresh data
+    await loadLiquidatableVaults();
+    
+    // Re-check that the vault is still available for liquidation
+    const updatedVault = liquidatableVaults.find(v => v.vault_id === vaultId);
+    if (!updatedVault) {
+      liquidationError = "This vault is no longer available for liquidation";
+      processingVaultId = null;
+      return;
+    }
+    
+    console.log(`Partially liquidating vault #${vaultId} with ${liquidateAmount} icUSD`);
+    const result = await protocolService.partialLiquidateVault(vaultId, liquidateAmount);
+    
+    if (result.success) {
+      // Calculate expected ICP received (10% discount)
+      const expectedIcpValue = liquidateAmount / 0.9; // 10% discount
+      const expectedIcpAmount = expectedIcpValue / icpPrice;
+      
+      liquidationSuccess = `Successfully partially liquidated vault #${vaultId}. You paid ${formatNumber(liquidateAmount)} icUSD and received approximately ${formatNumber(expectedIcpAmount)} ICP (10% discount).`;
+      // Refresh the list of liquidatable vaults
+      await loadLiquidatableVaults();
+    } else {
+      liquidationError = result.error || "Partial liquidation failed for unknown reason";
+    }
+  } catch (error) {
+    console.error("Error during partial liquidation:", error);
+    
+    // Check for specific underflow error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('underflow') && errorMessage.includes('numeric.rs')) {
+      liquidationError = "Partial liquidation failed due to a calculation error. The vault may have already been liquidated or its state has changed.";
+    } else {
+      liquidationError = errorMessage;
+    }
+  } finally {
+    processingVaultId = null;
+  }
+}
   
   // Load ICP price
   async function refreshIcpPrice() {
@@ -397,27 +476,50 @@
                     </div>
                   </td>
                   <td class="px-4 py-4 text-right">
-                    <button 
-                      class="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      on:click={() => liquidateVault(vault.vault_id)}
-                      disabled={processingVaultId !== null || !isConnected || isApprovingAllowance}
-                    >
-                      {#if processingVaultId === vault.vault_id}
-                        {#if isApprovingAllowance}
-                          <span class="flex items-center gap-2">
-                            <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Approving icUSD...
-                          </span>
+                    <div class="flex flex-col gap-2 items-end">
+                      <!-- Partial Liquidation Controls -->
+                      <div class="flex gap-2 items-center">
+                        <input 
+                          type="number" 
+                          bind:value={partialLiquidationAmounts[vault.vault_id]}
+                          min="0" 
+                          max={vault.borrowed_icusd_amount / 100_000_000}
+                          step="0.01"
+                          placeholder="icUSD amount"
+                          class="w-24 px-2 py-1 bg-gray-800 text-white text-sm rounded border border-gray-700"
+                        />
+                        <button 
+                          class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          on:click={() => partialLiquidationAmounts[vault.vault_id] && partialLiquidateVault(vault.vault_id, partialLiquidationAmounts[vault.vault_id])}
+                          disabled={processingVaultId !== null || !isConnected || isApprovingAllowance || !partialLiquidationAmounts[vault.vault_id] || partialLiquidationAmounts[vault.vault_id] <= 0}
+                        >
+                          Partial
+                        </button>
+                      </div>
+                      
+                      <!-- Full Liquidation Button -->
+                      <button 
+                        class="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        on:click={() => liquidateVault(vault.vault_id)}
+                        disabled={processingVaultId !== null || !isConnected || isApprovingAllowance}
+                      >
+                        {#if processingVaultId === vault.vault_id}
+                          {#if isApprovingAllowance}
+                            <span class="flex items-center gap-2">
+                              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Approving icUSD...
+                            </span>
+                          {:else}
+                            <span class="flex items-center gap-2">
+                              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Liquidating...
+                            </span>
+                          {/if}
                         {:else}
-                          <span class="flex items-center gap-2">
-                            <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Liquidating...
-                          </span>
+                          Full Liquidate
                         {/if}
-                      {:else}
-                        Liquidate
-                      {/if}
-                    </button>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               {/each}
@@ -443,7 +545,7 @@
         <div class="glass-card h-full">
           <div class="text-pink-400 text-3xl font-bold mb-2">2</div>
           <h3 class="text-lg font-medium mb-2">Pay the Debt</h3>
-          <p class="text-gray-300">Pay the full debt amount in icUSD to liquidate the vault. Ensure you have sufficient icUSD in your wallet.</p>
+          <p class="text-gray-300">Pay the debt amount in icUSD to liquidate the vault. You can liquidate partially (any amount up to the full debt) or fully liquidate the entire vault.</p>
         </div>
 
         <div class="glass-card h-full">

@@ -2,6 +2,7 @@ use crate::event::{
     record_add_margin_to_vault, record_borrow_from_vault, record_open_vault,
     record_redemption_on_vaults, record_repayed_to_vault,
 };
+use ic_cdk::update;
 use crate::guard::GuardPrincipal;
 use crate::GuardError;
 use crate::logs::INFO;
@@ -9,6 +10,7 @@ use crate::management::{mint_icusd, transfer_icp_from, transfer_icusd_from};
 use crate::numeric::{ICUSD, ICP};
 use crate::{
     mutate_state, read_state, ProtocolError, SuccessWithFee, MIN_ICP_AMOUNT, MIN_ICUSD_AMOUNT,
+    MIN_PARTIAL_REPAY_AMOUNT, MIN_PARTIAL_LIQUIDATION_AMOUNT, DUST_THRESHOLD,
 };
 use candid::{CandidType, Deserialize, Principal};
 use ic_canister_log::log;
@@ -343,10 +345,17 @@ pub async fn close_vault(vault_id: u64) -> Result<Option<u64>, ProtocolError> {
     let caller = ic_cdk::caller();
     let _guard_principal = GuardPrincipal::new(caller, &format!("close_vault_{}", vault_id))?;
     
+    // Check rate limits first
+    mutate_state(|s| s.check_close_vault_rate_limit(caller))?;
+    
+    // Record the close request for rate limiting
+    mutate_state(|s| s.record_close_vault_request(caller));
+    
     // Check if the vault exists first
     let vault_exists = read_state(|s| s.vault_id_to_vaults.contains_key(&vault_id));
     
     if !vault_exists {
+        mutate_state(|s| s.complete_close_vault_request());
         log!(
             INFO,
             "[close_vault] Vault #{} not found for principal {}",
@@ -366,6 +375,7 @@ pub async fn close_vault(vault_id: u64) -> Result<Option<u64>, ProtocolError> {
 
     // Verify caller is the owner
     if caller != vault.owner {
+        mutate_state(|s| s.complete_close_vault_request());
         log!(
             INFO,
             "[close_vault] Principal {} is not the owner of vault #{}",
@@ -375,8 +385,28 @@ pub async fn close_vault(vault_id: u64) -> Result<Option<u64>, ProtocolError> {
         return Err(ProtocolError::CallerNotOwner);
     }
 
-    // Verify there's no outstanding debt
-    if vault.borrowed_icusd_amount > ICUSD::new(0) {
+    // Handle dust amounts - if debt is very small, forgive it
+    if vault.borrowed_icusd_amount <= DUST_THRESHOLD {
+        log!(
+            INFO,
+            "[close_vault] Forgiving dust debt of {} icUSD for vault #{}",
+            vault.borrowed_icusd_amount,
+            vault_id
+        );
+        
+        // Record dust forgiveness
+        mutate_state(|s| {
+            s.dust_forgiven_total += vault.borrowed_icusd_amount;
+            s.repay_to_vault(vault_id, vault.borrowed_icusd_amount);
+        });
+        
+        // Record dust forgiveness event
+        crate::storage::record_event(&crate::event::Event::DustForgiven {
+            vault_id,
+            amount: vault.borrowed_icusd_amount,
+        });
+    } else if vault.borrowed_icusd_amount > ICUSD::new(0) {
+        mutate_state(|s| s.complete_close_vault_request());
         log!(
             INFO,
             "[close_vault] Cannot close vault #{} with outstanding debt: {}",
@@ -390,6 +420,7 @@ pub async fn close_vault(vault_id: u64) -> Result<Option<u64>, ProtocolError> {
 
     // Verify there's no remaining collateral
     if vault.icp_margin_amount > ICP::new(0) {
+        mutate_state(|s| s.complete_close_vault_request());
         log!(
             INFO,
             "[close_vault] Cannot close vault #{} with remaining collateral: {}",
@@ -420,6 +451,9 @@ pub async fn close_vault(vault_id: u64) -> Result<Option<u64>, ProtocolError> {
             // Record the close vault event
             crate::event::record_close_vault(s, vault_id, None);
             
+            // Complete the close request
+            s.complete_close_vault_request();
+            
             log!(
                 INFO,
                 "[close_vault] Successfully closed vault #{} for principal {}",
@@ -433,6 +467,7 @@ pub async fn close_vault(vault_id: u64) -> Result<Option<u64>, ProtocolError> {
                 "[close_vault] Attempted to close vault #{} that was already removed",
                 vault_id
             );
+            s.complete_close_vault_request();
         }
     });
     
@@ -928,6 +963,7 @@ fn schedule_transfer_retry(vault_id: u64, retry_count: u32) {
     });
 }
 
+#[update]
 pub async fn partial_repay_to_vault(arg: VaultArg) -> Result<u64, ProtocolError> {
     let caller = ic_cdk::api::caller();
     let guard_principal = GuardPrincipal::new(caller, &format!("partial_repay_vault_{}", arg.vault_id))?;
@@ -939,10 +975,10 @@ pub async fn partial_repay_to_vault(arg: VaultArg) -> Result<u64, ProtocolError>
         return Err(ProtocolError::CallerNotOwner);
     }
 
-    if amount < MIN_ICUSD_AMOUNT {
+    if amount < MIN_PARTIAL_REPAY_AMOUNT {
         guard_principal.fail();
         return Err(ProtocolError::AmountTooLow {
-            minimum_amount: MIN_ICUSD_AMOUNT.to_u64(),
+            minimum_amount: MIN_PARTIAL_REPAY_AMOUNT.to_u64(),
         });
     }
 
@@ -970,6 +1006,7 @@ pub async fn partial_repay_to_vault(arg: VaultArg) -> Result<u64, ProtocolError>
     }
 }
 
+#[update]
 pub async fn partial_liquidate_vault(arg: VaultArg) -> Result<SuccessWithFee, ProtocolError> {
     let caller = ic_cdk::api::caller();
     let guard_principal = GuardPrincipal::new(caller, &format!("partial_liquidate_vault_{}", arg.vault_id))?;
@@ -1004,10 +1041,10 @@ pub async fn partial_liquidate_vault(arg: VaultArg) -> Result<SuccessWithFee, Pr
     };
 
     // Step 2: Validate liquidator payment amount
-    if liquidator_payment < MIN_ICUSD_AMOUNT {
+    if liquidator_payment < MIN_PARTIAL_LIQUIDATION_AMOUNT {
         guard_principal.fail();
         return Err(ProtocolError::AmountTooLow {
-            minimum_amount: MIN_ICUSD_AMOUNT.to_u64(),
+            minimum_amount: MIN_PARTIAL_LIQUIDATION_AMOUNT.to_u64(),
         });
     }
 

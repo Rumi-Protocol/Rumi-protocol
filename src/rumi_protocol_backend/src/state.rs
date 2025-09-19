@@ -128,6 +128,12 @@ pub struct State {
     pub operation_names: BTreeMap<Principal, String>, // Track operation names
     pub is_timer_running: bool,
     pub is_fetching_rate: bool,
+    
+    // Rate limiting for close_vault operations
+    pub close_vault_requests: BTreeMap<Principal, Vec<u64>>, // Principal -> timestamps of close requests
+    pub global_close_requests: Vec<u64>, // Global timestamps of close requests
+    pub concurrent_close_operations: u32, // Current concurrent close operations
+    pub dust_forgiven_total: ICUSD, // Total dust amount forgiven
 }
 
 impl From<InitArg> for State {
@@ -159,11 +165,110 @@ impl From<InitArg> for State {
             pending_margin_transfers: BTreeMap::new(),
             is_timer_running: false,
             is_fetching_rate: false,
+            
+            // Rate limiting initialization
+            close_vault_requests: BTreeMap::new(),
+            global_close_requests: Vec::new(),
+            concurrent_close_operations: 0,
+            dust_forgiven_total: ICUSD::new(0),
         }
     }
 }
 
 impl State {
+
+    // Rate limiting functions for close_vault operations
+    pub fn check_close_vault_rate_limit(&mut self, principal: Principal) -> Result<(), ProtocolError> {
+        let current_time = ic_cdk::api::time();
+        let minute_nanos = 60 * 1_000_000_000; // 1 minute in nanoseconds
+        let day_nanos = 24 * 60 * minute_nanos; // 24 hours in nanoseconds
+        
+        // Clean old timestamps (older than 24 hours)
+        let cutoff_time = current_time.saturating_sub(day_nanos);
+        
+        // Clean user's timestamps
+        if let Some(user_requests) = self.close_vault_requests.get_mut(&principal) {
+            user_requests.retain(|&timestamp| timestamp > cutoff_time);
+        }
+        
+        // Clean global timestamps
+        self.global_close_requests.retain(|&timestamp| timestamp > cutoff_time);
+        
+        // Check user rate limits (5 per minute, 60 per day)
+        let user_recent_requests = self.close_vault_requests
+            .get(&principal)
+            .map(|requests| requests.iter().filter(|&&timestamp| timestamp > current_time - minute_nanos).count())
+            .unwrap_or(0);
+            
+        let user_daily_requests = self.close_vault_requests
+            .get(&principal)
+            .map(|requests| requests.len())
+            .unwrap_or(0);
+            
+        if user_recent_requests >= 5 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 5 close_vault calls per minute per user".to_string()
+            ));
+        }
+        
+        if user_daily_requests >= 60 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 60 close_vault calls per day per user".to_string()
+            ));
+        }
+        
+        // Check global rate limits (300 per minute, 30,000 per day)
+        let global_recent_requests = self.global_close_requests
+            .iter()
+            .filter(|&&timestamp| timestamp > current_time - minute_nanos)
+            .count();
+            
+        let global_daily_requests = self.global_close_requests.len();
+        
+        if global_recent_requests >= 300 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 300 close_vault calls per minute globally".to_string()
+            ));
+        }
+        
+        if global_daily_requests >= 30_000 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 30,000 close_vault calls per day globally".to_string()
+            ));
+        }
+        
+        // Check concurrent operations limit (200)
+        if self.concurrent_close_operations >= 200 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 200 concurrent close_vault operations".to_string()
+            ));
+        }
+        
+        Ok(())
+    }
+    
+    pub fn record_close_vault_request(&mut self, principal: Principal) {
+        let current_time = ic_cdk::api::time();
+        
+        // Record user request
+        self.close_vault_requests
+            .entry(principal)
+            .or_insert_with(Vec::new)
+            .push(current_time);
+            
+        // Record global request
+        self.global_close_requests.push(current_time);
+        
+        // Increment concurrent operations
+        self.concurrent_close_operations += 1;
+    }
+    
+    pub fn complete_close_vault_request(&mut self) {
+        // Decrement concurrent operations
+        if self.concurrent_close_operations > 0 {
+            self.concurrent_close_operations -= 1;
+        }
+    }
 
     pub fn check_price_not_too_old(&self) -> Result<(), ProtocolError> {
         let current_time = ic_cdk::api::time();
@@ -738,5 +843,73 @@ mod tests {
         assert_eq!(result[0].icusd_share_amount, ICUSD::new(250_000));
         assert_eq!(result[1].icp_share_amount, ICP::new(262_500));
         assert_eq!(result[1].icusd_share_amount, ICUSD::new(150_000));
+    }
+
+    #[test]
+    fn test_partial_repay_reduces_debt() {
+        // Initialize a minimal state
+        let mut state = State::from(InitArg {
+            xrc_principal: Principal::anonymous(),
+            icusd_ledger_principal: Principal::anonymous(),
+            icp_ledger_principal: Principal::anonymous(),
+            fee_e8s: 0,
+            developer_principal: Principal::anonymous(),
+        });
+
+        // Create a vault with some debt
+        let owner = Principal::anonymous();
+        let vault_id = 1u64;
+        state.open_vault(Vault {
+            owner,
+            vault_id,
+            icp_margin_amount: ICP::new(1_000_000), // 0.01 ICP
+            borrowed_icusd_amount: ICUSD::new(200_000_000), // 2 icUSD
+        });
+
+        // Repay 0.01 icUSD (minimum partial repay in e8s is 1_000_000)
+        let repay_amount = ICUSD::new(1_000_000);
+        state.repay_to_vault(vault_id, repay_amount);
+
+        // Assert debt reduced correctly
+        let vault = state.vault_id_to_vaults.get(&vault_id).unwrap();
+        assert_eq!(vault.borrowed_icusd_amount, ICUSD::new(199_000_000));
+    }
+
+    #[test]
+    fn test_recovery_mode_partial_liquidation_path() {
+        // Initialize state with Recovery mode
+        let mut state = State::from(InitArg {
+            xrc_principal: Principal::anonymous(),
+            icusd_ledger_principal: Principal::anonymous(),
+            icp_ledger_principal: Principal::anonymous(),
+            fee_e8s: 0,
+            developer_principal: Principal::anonymous(),
+        });
+        state.mode = Mode::Recovery;
+
+        // Set a price
+        let icp_rate = UsdIcp::from(dec!(5)); // $5 per ICP
+
+        // Vault with ratio above MINIMUM_COLLATERAL_RATIO but system in Recovery → triggers partial liquidation path
+        // borrowed = 10 icUSD, margin = 3 ICP ⇒ collateral value = $15 ⇒ ratio = 1.5 (> 1.33)
+        let owner = Principal::anonymous();
+        let vault_id = 42u64;
+        state.open_vault(Vault {
+            owner,
+            vault_id,
+            icp_margin_amount: ICP::new(300_000_000), // 3.0 ICP (e8s inside type)
+            borrowed_icusd_amount: ICUSD::new(1_000_000_000), // 10 icUSD
+        });
+
+        // Execute protocol's recovery liquidation logic
+        state.liquidate_vault(vault_id, state.mode, icp_rate);
+
+        // After recovery-mode partial liquidation: debt set to 0 and margin reduced by
+        // partial_margin = borrowed * MINIMUM_COLLATERAL_RATIO / icp_rate
+        let expected_partial_icp = (ICUSD::new(1_000_000_000) * MINIMUM_COLLATERAL_RATIO) / icp_rate;
+
+        let vault = state.vault_id_to_vaults.get(&vault_id).unwrap();
+        assert_eq!(vault.borrowed_icusd_amount, ICUSD::new(0));
+        assert_eq!(vault.icp_margin_amount, ICP::new(300_000_000) - expected_partial_icp);
     }
 }

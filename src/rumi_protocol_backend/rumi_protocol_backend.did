@@ -177,4 +177,8 @@ service : (ProtocolArg) -> {
   withdraw_collateral : (nat64) -> (variant { Ok : nat64; Err : ProtocolError });
   withdraw_and_close_vault: (nat64) -> (variant { Ok: opt nat64; Err: ProtocolError });
   liquidate_vault : (nat64) -> (variant { Ok : SuccessWithFee; Err : ProtocolError });
+  
+  // Partial operations
+  partial_repay_to_vault : (VaultArg) -> (variant { Ok : nat64; Err : ProtocolError });
+  partial_liquidate_vault : (VaultArg) -> (variant { Ok : SuccessWithFee; Err : ProtocolError });
 }

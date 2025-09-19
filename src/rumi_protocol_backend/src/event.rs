@@ -124,6 +124,12 @@ pub enum Event {
         amount: ICP,
         block_index: Option<u64>,
     },
+
+    #[serde(rename = "dust_forgiven")]
+    DustForgiven {
+        vault_id: u64,
+        amount: ICUSD,
+    },
 }
 
 impl Event {
@@ -149,6 +155,7 @@ impl Event {
             Event::CollateralWithdrawn { vault_id, .. } => vault_id == filter_vault_id,
             Event::VaultWithdrawnAndClosed { vault_id, .. } => vault_id == filter_vault_id,
             Event::WithdrawAndCloseVault { vault_id, .. } => vault_id == filter_vault_id,
+            Event::DustForgiven { vault_id, .. } => vault_id == filter_vault_id,
         }
     }
 }
@@ -282,6 +289,12 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<State, ReplayLo
             } => {
                 // Close the vault during replay
                 state.close_vault(vault_id);
+            },
+            Event::DustForgiven { 
+                vault_id: _,
+                amount: _,
+            } => {
+                // Dust forgiveness doesn't need state changes during replay
             },
         }
     }

@@ -19,9 +19,20 @@
       "type": "assets",
       "workspace": "rumi_protocol_frontend"
     },
+    "stability_pool": {
+      "candid": "src/stability_pool/stability_pool.did",
+      "package": "stability_pool",
+      "type": "rust",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
     "vault_frontend": {
       "dependencies": [
-        "rumi_protocol_backend"
+        "rumi_protocol_backend",
+        "stability_pool"
       ],
       "source": [
         "src/vault_frontend/dist"

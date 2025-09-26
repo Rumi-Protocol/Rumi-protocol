@@ -1,0 +1,34 @@
+[package]
+name = "stability_pool"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = "0.10.6"
+ic-stable-structures = "0.6.5"
+ic-cdk = "0.12.0"
+ic-cdk-timers = "0.10.0"
+serde = "1.0.210"
+futures = "0.3.28"
+ciborium = "0.2.1"
+sha2 = "0.10.2"
+async-trait = "0.1"
+ic-cdk-macros = "0.8.3"
+ic-canister-log = { git = "https://github.com/Rumi-Protocol/ic", rev = "fc278709" }
+icrc-ledger-types = { git = "https://github.com/Rumi-Protocol/ic", rev = "fc278709" }
+icrc-ledger-client-cdk = { git = "https://github.com/Rumi-Protocol/ic", rev = "fc278709" }
+rust_decimal = "1.32.0"
+rust_decimal_macros = "1.32"
+serde_bytes = "0.11"
+num-traits = "0.2"
+candid_parser = "0.1"
+rumi_protocol_backend = { path = "../rumi_protocol_backend" }
+
+[dev-dependencies]
+assert_matches = "1.3.0"
+ic-state-machine-tests = { git = "https://github.com/Rumi-Protocol/ic", rev = "fc278709" }
+pocket-ic = "6.0.0"

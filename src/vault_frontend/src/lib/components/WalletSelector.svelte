@@ -8,9 +8,18 @@
   let isConnecting = false;
   let showOptions = false;
 
-  $: isConnected = $walletStore.isConnected;
-  $: walletType = $selectedWalletType;
+  $: isConnected = $walletStore.isConnected || $auth.isConnected;
+  $: walletType = $selectedWalletType || $auth.walletType;
   $: error = $connectionError;
+
+  // Debug reactive statements
+  $: console.log('WalletSelector state:', {
+    isConnected,
+    walletType,
+    walletStoreConnected: $walletStore.isConnected,
+    authConnected: $auth.isConnected,
+    authWalletType: $auth.walletType
+  });
 
   async function connectWithPlug() {
     isConnecting = true;
@@ -28,7 +37,10 @@
   async function connectWithII() {
     isConnecting = true;
     try {
-      await auth.connectInternetIdentity();
+      console.log('WalletSelector: Starting II connection...');
+      const result = await auth.connectInternetIdentity();
+      console.log('WalletSelector: II connection result:', result);
+      console.log('WalletSelector: Auth state after connection:', $auth);
       showOptions = false;
       dispatch('connected', { type: 'internet-identity' });
     } catch (err) {
@@ -40,7 +52,12 @@
 
   async function disconnect() {
     try {
-      await walletStore.disconnect();
+      // Disconnect based on wallet type
+      if ($selectedWalletType === 'internet-identity') {
+        await auth.disconnect();
+      } else {
+        await walletStore.disconnect();
+      }
       dispatch('disconnected');
     } catch (err) {
       console.error('Disconnect failed:', err);

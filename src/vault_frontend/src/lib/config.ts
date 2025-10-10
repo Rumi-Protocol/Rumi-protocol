@@ -1,4 +1,4 @@
-import { idlFactory as rumi_backendIDL } from '../../../declarations/test_rumi_protocol_backend/test_rumi_protocol_backend.did.js';
+import { idlFactory as rumi_backendIDL } from '../../../declarations/rumi_protocol_backend/rumi_protocol_backend.did.js';
 import { idlFactory as icp_ledgerIDL } from '../../../declarations/icp_ledger/icp_ledger.did.js';
 import { idlFactory as icusd_ledgerIDL } from '../../../declarations/icusd_ledger/icusd_ledger.did.js';
 

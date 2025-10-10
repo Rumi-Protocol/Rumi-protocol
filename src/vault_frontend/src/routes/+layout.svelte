@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { walletStore as wallet } from "../lib/stores/wallet";
   import { permissionStore } from "../lib/stores/permissionStore";
-  import WalletConnector from "../lib/components/wallet/WalletConnector.svelte";
+  import WalletSelector from "../lib/components/WalletSelector.svelte";
   import PriceDebug from "../lib/components/debug/PriceDebug.svelte";
   import WalletDebug from "../lib/components/debug/WalletDebug.svelte";
   import "../app.css";
@@ -52,7 +52,7 @@
       </nav>
 
       <div class="flex items-center gap-8">
-        <WalletConnector />
+        <WalletSelector />
         <a href="mailto:team@rumilabs.xyz" class="hover:opacity-80 transition" aria-label="Email Us">
           <img src="/message-outline-512.png" alt="Email" class="w-8 h-8" />
         </a>

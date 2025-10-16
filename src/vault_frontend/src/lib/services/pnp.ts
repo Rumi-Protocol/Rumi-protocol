@@ -26,36 +26,55 @@ export const REQUIRED_CANISTERS = {
   icusdLedger: CONFIG.currentIcusdLedgerId
 };
 
-// CRITICAL FIX: Make initializePermissions check wallet type first
-export async function initializePermissions(walletId?: string): Promise<boolean> {
+// COMPREHENSIVE PERMISSION SYSTEM - Request ALL permissions at once during wallet connection
+// Custom connect function that ensures comprehensive permissions for Plug
+export async function connectWithComprehensivePermissions(walletId: string): Promise<any> {
   try {
-    console.log('Initializing permissions for wallet:', walletId);
+    console.log('🔐 Connecting with comprehensive permissions for:', walletId);
     
-    // Only request Plug permissions if specifically using Plug wallet
-    if (walletId === 'plug' || (!walletId && window.ic?.plug)) {
-      console.log('Requesting Plug wallet permissions');
+    // For Plug wallet, manually handle the comprehensive permission request
+    if (walletId === 'plug' && window.ic?.plug) {
+      console.log('🔧 Setting up comprehensive Plug permissions...');
       
-      if (!window.ic?.plug) {
-        console.warn('Plug wallet not available in window.ic');
-        return false;
+      // Request ALL canister permissions upfront for Plug
+      const comprehensivePermissions = {
+        whitelist: [
+          CONFIG.currentCanisterId,      // Protocol canister
+          CONFIG.currentIcpLedgerId,     // ICP Ledger  
+          CONFIG.currentIcusdLedgerId    // icUSD Ledger
+        ],
+        host: CONFIG.isLocal ? 'http://localhost:4943' : 'https://icp0.io',
+        timeout: 60000
+      };
+      
+      console.log('🔐 Requesting comprehensive Plug permissions:', comprehensivePermissions);
+      
+      // Use Plug's requestConnect with comprehensive whitelist
+      const plugConnected = await window.ic.plug.requestConnect(comprehensivePermissions);
+      if (!plugConnected) {
+        throw new Error('Plug wallet connection denied');
       }
       
-      // Request all permissions at once
-      await window.ic.plug.requestConnect({
-        whitelist: Object.values(REQUIRED_CANISTERS),
-        host: window.location.origin
-      });
+      // Get the account info from Plug directly
+      const principal = await window.ic.plug.agent.getPrincipal();
+      console.log('✅ Plug connected with comprehensive permissions:', principal.toText());
       
-      return await window.ic.plug.isConnected();
+      return { owner: principal };
     }
     
-    // For Internet Identity and other wallets, no permissions needed
-    console.log('No explicit permissions needed for wallet:', walletId || 'unknown');
-    return true;
+    // For other wallets, use standard PNP connection
+    return await globalPnp?.connect(walletId);
   } catch (err) {
-    console.error('Failed to initialize permissions:', err);
-    return false;
+    console.error('❌ Failed to connect with comprehensive permissions:', err);
+    throw err;
   }
+}
+
+export async function requestAllPermissionsUpfront(walletId?: string): Promise<boolean> {
+  // This function is kept for backward compatibility but is no longer used
+  // Comprehensive permissions are now handled in connectWithComprehensivePermissions
+  console.log('✅ Permission handling moved to connectWithComprehensivePermissions');
+  return true;
 }
 
 export function initializePNP(): PNP {
@@ -65,41 +84,45 @@ export function initializePNP(): PNP {
     }
 
     const protocolId = CONFIG.isLocal ? LOCAL_CANISTER_IDS.PROTOCOL : CANISTER_IDS.PROTOCOL;
+    
+    console.log('🔍 Debug: protocolId being used for Principal.fromText:', protocolId);
+    console.log('🔍 Debug: CONFIG.isLocal:', CONFIG.isLocal);
+    
+    try {
+      const delegationTargets = [Principal.fromText(protocolId)];
+    } catch (error) {
+      console.error('❌ Error parsing protocolId as Principal:', error);
+      console.error('❌ Problematic protocolId value:', protocolId);
+      throw new Error(`Invalid protocolId for Principal parsing: ${protocolId}. Error: ${String(error)}`);
+    }
+    
     const delegationTargets = [Principal.fromText(protocolId)];
 
     const isDev = import.meta.env.DEV;
     const derivationOrigin = () => {
-      if (isDev) {
+      if (isDev || CONFIG.isLocal) {
         return "http://localhost:5173";
       }
-      let httpPrefix = "https://";
-      let icp0Suffix = ".icp0.io";
-      if (process.env.DFX_NETWORK === "local") {
-        return "http://bkyz2-fmaaa-aaaaa-qaaaq-cai.localhost:4943";
-
-      }
-
-      return httpPrefix + vault_frontend + icp0Suffix;
+      
+      // For IC deployment, use the proper canister URL
+      return `https://${vault_frontend}.icp0.io`;
     };
 
+    console.log('🔧 Initializing PNP with comprehensive configuration...');
+
+    // Create PNP with comprehensive configuration for all wallets
     globalPnp = createPNP({
       hostUrl: CONFIG.isLocal
         ? "http://localhost:4943"
         : "https://icp0.io",
       isDev: CONFIG.isLocal,
-      whitelist: [protocolId],
-      fetchRootKeys: CONFIG.isLocal,
-      timeout: 1000 * 60 * 60 * 4, // 4 hours
-      verifyQuerySignatures: !CONFIG.isLocal,
-      identityProvider: CONFIG.isLocal
-        ? "http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:4943"
-        : "https://identity.ic0.app",
-      persistSession: true,
-      derivationOrigin: derivationOrigin(),
-      delegationTimeout: BigInt(86400000000000), // 24 hours
       delegationTargets,
+      delegationTimeout: BigInt(86400000000000), // 24 hours
+      // Note: Individual wallet configurations (like Plug whitelist) are handled
+      // by the PNP library during the connect() call based on wallet type
     });
 
+    console.log('✅ PNP initialized with comprehensive permissions');
     return globalPnp;
   } catch (error) {
     console.error("Error initializing PNP:", error);
@@ -114,7 +137,33 @@ export function getPnpInstance(): PNP {
   return globalPnp;
 }
 
-export const pnp = getPnpInstance();
+// Enhanced PNP wrapper that uses Plug directly when connected
+export const pnp = {
+  ...getPnpInstance(),
+  
+  // Override connect to use our comprehensive method
+  connect: connectWithComprehensivePermissions,
+  
+  // Override getActor to use Plug directly when possible to avoid permission prompts
+  async getActor(canisterId: string, idl: any) {
+    try {
+      // For Plug wallet, use the direct Plug API to avoid permission prompts
+      if (window.ic?.plug && await window.ic.plug.isConnected()) {
+        console.log('🔧 Using Plug direct API for actor:', canisterId);
+        return await window.ic.plug.createActor({
+          canisterId,
+          interfaceFactory: idl
+        });
+      }
+      
+      // For other wallets, use standard PNP
+      return await globalPnp?.getActor(canisterId, idl);
+    } catch (err) {
+      console.error('Error getting actor for canister', canisterId, err);
+      throw err;
+    }
+  }
+};
 
 
 

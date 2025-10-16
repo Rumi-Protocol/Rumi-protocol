@@ -59,6 +59,13 @@ type Event = variant {
     icp_rate : vec nat8;
     vault_id : nat64;
   };
+  partial_liquidate_vault : record {
+    vault_id : nat64;
+    liquidated_debt : nat64;
+    collateral_seized : nat64;
+    liquidator : opt principal;
+    icp_rate : vec nat8;
+  };
   withdraw_and_close_vault : record {
     vault_id : nat64;
     amount : nat64;
@@ -177,4 +184,5 @@ service : (ProtocolArg) -> {
   withdraw_collateral : (nat64) -> (variant { Ok : nat64; Err : ProtocolError });
   withdraw_and_close_vault: (nat64) -> (variant { Ok: opt nat64; Err: ProtocolError });
   liquidate_vault : (nat64) -> (variant { Ok : SuccessWithFee; Err : ProtocolError });
+  liquidate_vault_partial : (nat64, nat64) -> (variant { Ok : SuccessWithFee; Err : ProtocolError });
 }

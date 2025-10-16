@@ -6,8 +6,17 @@ import type { VaultOperationResult } from './types';
 import { processingStore, ProcessingStage } from '$lib/stores/processingStore';
 import { walletStore } from '$lib/stores/wallet';
 import { get } from 'svelte/store';
-import { CONFIG } from '../config';
 import { vaultStore } from '../stores/vaultStore';
+import { streamlinedPermissions } from './StreamlinedPermissions';
+import { permissionManager } from './PermissionManager';
+import { CANISTER_IDS, CONFIG, LOCAL_CANISTER_IDS  } from '../config';
+
+// Add missing interfaces
+export interface ProtocolResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
 
 /**
  * ProtocolManager provides operation queueing, error handling, and retries for API operations.
@@ -27,6 +36,15 @@ export class ProtocolManager {
       this.instance = new ProtocolManager();
     }
     return this.instance;
+  }
+
+  // Add missing helper methods
+  private static createSuccess(message: string, data?: any): ProtocolResult {
+    return { success: true, data, error: undefined };
+  }
+
+  private static createError(message: string): ProtocolResult {
+    return { success: false, error: message };
   }
 
   /**
@@ -379,91 +397,29 @@ export class ProtocolManager {
   async repayToVault(vaultId: number, icusdAmount: number): Promise<VaultOperationResult> {
     return this.executeOperation(
       `repayToVault:${vaultId}`,
+      () => ApiClient.repayToVault(vaultId, icusdAmount),
       async () => {
+        // Pre-checks
+        await walletOperations.checkSufficientBalance(icusdAmount);
+        
+        // Ensure proper icUSD allowance for the repayment
+        const amountE8s = BigInt(Math.floor(icusdAmount * 100_000_000));
+        const spenderCanisterId = CONFIG.currentCanisterId;
+        
         try {
-          // Check and set allowance for icUSD before repaying
-          const amountE8s = BigInt(Math.floor(icusdAmount * 100_000_000));
-          const spenderCanisterId = CONFIG.currentCanisterId;
-          
           // Check current allowance
           const currentAllowance = await walletOperations.checkIcusdAllowance(spenderCanisterId);
-          console.log(`Current icUSD allowance: ${Number(currentAllowance) / 100_000_000}`);
-          
-          // If allowance is insufficient, request approval first
-          if (currentAllowance < amountE8s) {
-            console.log(`Setting icUSD approval for ${icusdAmount}`);
-            processingStore.setStage(ProcessingStage.APPROVING);
-            
-            // Request approval with a buffer (10% more) to handle any fees
-            const approvalAmount = amountE8s * BigInt(110) / BigInt(100);
-            const approvalResult = await walletOperations.approveIcusdTransfer(
-              approvalAmount, 
-              spenderCanisterId
-            );
-            
-            if (!approvalResult.success) {
-              return {
-                success: false,
-                error: approvalResult.error || "Failed to approve icUSD transfer"
-              };
-            }
-            
-            console.log(`Successfully approved ${Number(approvalAmount) / 100_000_000} icUSD`);
-            
-            // Short pause to ensure approval transaction is processed
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            processingStore.setStage(ProcessingStage.CREATING);
-          }
-          
-          // Now proceed with the repayment
-          return await ApiClient.repayToVault(vaultId, icusdAmount);
-        } catch (error) {
-          console.error('Error during repayment flow:', error);
-          
-          if (error instanceof Error) {
-            const errorMsg = error.message.toLowerCase();
-            
-            if (errorMsg.includes('insufficientallowance') || 
-                errorMsg.includes('insufficient allowance')) {
-              return {
-                success: false,
-                error: "Insufficient icUSD allowance. Please try the operation again."
-              };
-            }
-          }
-          
-          throw error;
-        }
-      },
-      async () => {
-        // Pre-check to verify the user has sufficient icUSD balance
-        const walletState = get(walletStore);
-        if (!walletState.isConnected) {
-          throw new Error('Wallet disconnected. Please reconnect and try again.');
-        }
-        
-        // Check if the user has the required icUSD balance
-        try {
-          const icusdBalance = await walletOperations.getIcusdBalance();
-          if (icusdBalance < icusdAmount) {
-            throw new Error(`Insufficient icUSD balance. You have ${icusdBalance} icUSD but trying to repay ${icusdAmount} icUSD.`);
-          }
-          
-          // Pre-check allowance to set the right UI state early
-          const amountE8s = BigInt(Math.floor(icusdAmount * 100_000_000));
-          const spenderCanisterId = CONFIG.currentCanisterId;
-          const currentAllowance = await walletOperations.checkIcusdAllowance(spenderCanisterId);
-          
-          console.log(`Pre-check: Current icUSD allowance: ${Number(currentAllowance) / 100_000_000}`);
-          console.log(`Pre-check: Required icUSD allowance: ${icusdAmount}`);
           
           if (currentAllowance < amountE8s) {
             processingStore.setStage(ProcessingStage.APPROVING);
             console.log("Setting approval stage - insufficient icUSD allowance detected");
+            
+            // Approve the icUSD transfer
+            await walletOperations.approveIcusdTransfer(amountE8s, spenderCanisterId);
           }
         } catch (err) {
-          console.warn('Balance or allowance check error:', err);
-          // Continue with operation even if balance check fails
+          console.error('icUSD allowance check/approval failed:', err);
+          throw new Error('Failed to ensure icUSD allowance for repayment');
         }
       }
     );
@@ -679,6 +635,43 @@ export class ProtocolManager {
       `withdrawAndClose:${vaultId}`,
       () => ApiClient.withdrawCollateralAndCloseVault(vaultId)
     );
+  }
+
+  private getCanisterIdForOperation(operation: string): string {
+    // Placeholder for logic to determine the canister ID for a given operation
+    return CONFIG.currentCanisterId;
+  }
+
+  /**
+   * Deposit ICP to vault with complete flow automation
+   */
+  static async depositIcp(amount: number): Promise<ProtocolResult> {
+    try {
+      console.log(`💰 Starting ICP deposit of ${amount} ICP`);
+      
+      // REMOVED: No longer need to explicitly request permissions
+      // Permissions are automatically handled during wallet connection
+
+      // Step 2: Approve ICP transfer instead of calling ensureTokenApproval
+      const amountE8s = BigInt(Math.floor(amount * 100_000_000));
+      const approvalResult = await walletOperations.approveIcpTransfer(amountE8s, CANISTER_IDS.PROTOCOL);
+      if (!approvalResult.success) {
+        return this.createError(`ICP approval failed: ${approvalResult.error}`);
+      }
+
+      // Step 3: Execute deposit
+      const vaultActor = await walletStore.getActor(CANISTER_IDS.PROTOCOL, CONFIG.rumi_backendIDL);
+      const depositResult = await vaultActor.deposit_icp(amountE8s);
+      
+      if ('Ok' in depositResult) {
+        return this.createSuccess(`Successfully deposited ${amount} ICP`, depositResult.Ok);
+      } else {
+        return this.createError(`Deposit failed: ${JSON.stringify(depositResult.Err)}`);
+      }
+    } catch (error) {
+      console.error('ICP deposit failed:', error);
+      return this.createError(error instanceof Error ? error.message : 'Unknown error during ICP deposit');
+    }
   }
 }
 

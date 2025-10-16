@@ -29,6 +29,16 @@ pub enum Event {
         liquidator: Option<Principal>,
     },
 
+    #[serde(rename = "partial_liquidate_vault")]
+    PartialLiquidateVault {
+        vault_id: u64,
+        liquidated_debt: ICUSD,
+        collateral_seized: ICP,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        liquidator: Option<Principal>,
+        icp_rate: UsdIcp,
+    },
+
     #[serde(rename = "redemption_on_vaults")]
     RedemptionOnVaults {
         owner: Principal,
@@ -126,6 +136,7 @@ impl Event {
             Event::CloseVault { vault_id, .. } => vault_id == filter_vault_id,
             Event::MarginTransfer { vault_id, .. } => vault_id == filter_vault_id,
             Event::LiquidateVault { vault_id, .. } => vault_id == filter_vault_id,
+            Event::PartialLiquidateVault { vault_id, .. } => vault_id == filter_vault_id,
             Event::RedemptionOnVaults { .. } => true,
             Event::RedemptionTransfered { .. } => false,
             Event::RedistributeVault { vault_id, .. } => vault_id == filter_vault_id,
@@ -183,6 +194,13 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<State, ReplayLo
                 icp_rate,
                 liquidator: _,
             } => state.liquidate_vault(vault_id, mode, icp_rate),
+            Event::PartialLiquidateVault {
+                vault_id,
+                liquidated_debt,
+                collateral_seized,
+                liquidator: _,
+                icp_rate,
+            } => state.liquidate_vault_partial(vault_id, liquidated_debt, collateral_seized, icp_rate),
             Event::RedistributeVault { vault_id } => state.redistribute_vault(vault_id),
             Event::BorrowFromVault {
                 vault_id,

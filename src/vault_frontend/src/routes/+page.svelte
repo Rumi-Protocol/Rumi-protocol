@@ -1,48 +1,52 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import type { EnhancedVault } from "../lib/stores/vaultStore";
-  import VaultCard from "../lib/components/vault/VaultCard.svelte";
-  import { walletStore as wallet } from "../lib/stores/wallet";
-  import CreateVault from "../lib/components/vault/CreateVault.svelte";
   import { developerAccess } from '../lib/stores/developer';
-  import { protocolService } from '$lib/services/protocol';
   import { formatNumber } from '$lib/utils/format';
-  import ProtocolStats from '$lib/components/dashboard/ProtocolStats.svelte';
-  import { permissionManager } from '../lib/services/PermissionManager';
   import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
-	import type { fromHex } from "@dfinity/agent";
+  import { selectedWalletId } from '../lib/services/auth';
+  import { get } from 'svelte/store';
+  import { appDataStore, protocolStatus, isLoadingProtocol } from '$lib/stores/appDataStore';
+  import { walletStore, isConnected, principal } from '$lib/stores/wallet';
+  import { protocolService } from '$lib/services/protocol';
+  import { MINIMUM_COLLATERAL_RATIO } from '$lib/services/protocol/apiClient';
+  import ProtocolStats from '$lib/components/dashboard/ProtocolStats.svelte';
 
-  let vaults: EnhancedVault[] = [];
-  let icpPrice = 0;
-  let isLoading = true;
-  let isPriceLoading = true;
-  let error = "";
-  $: isConnected = $wallet.isConnected;
-  $: isDeveloper = $developerAccess;
+  // Form variables
+  let icpAmount = 1;
+  let icusdAmount = 5;
+  let errorMessage = '';
+  let successMessage = '';
+  let actionInProgress = false;
 
+  // Developer mode variables
   let showDevInput = false;
   let devPasskey = "";
   let devError = "";
 
-  let initialized = false;
-  let connectionError = '';
-
-  let principal = null;
-  let borrowingFee = 0;
-  let redemptionFee = 0;
-  let isLoadingStatus = true;
-  let icpAmount = 0;
-  let icusdAmount = 0;
-  let actionInProgress = false;
-  let errorMessage = '';
-  let successMessage = '';
-
-  wallet.subscribe((state) => {
-    isConnected = state.isConnected;
-    principal = state.principal;
+  // Price tracking variables
+  let isPriceLoading = true;
+  let animatedPrice = tweened(0, {
+    duration: 600,
+    easing: cubicOut
   });
+  let previousPrice = 0;
+  let priceRefreshInterval: ReturnType<typeof setInterval>;
+  let lastPriceUpdateTime = '';
+  let priceUpdateError = false;
+  let priceRefreshCount = 0;
 
+  // Reactive data from centralized store
+  $: icpPrice = $protocolStatus?.lastIcpRate || 0;
+  $: isLoadingStatus = $isLoadingProtocol;
+
+  // Price calculations
+  $: collateralValue = icpAmount * icpPrice;
+  $: collateralRatio = collateralValue > 0 ? collateralValue / icusdAmount : 0;
+  $: isValidCollateralRatio = collateralRatio >= MINIMUM_COLLATERAL_RATIO;
+
+  // Borrowing fee calculations
+  const borrowingFee = 0.005; // 0.5% borrowing fee
   $: calculatedBorrowFee = icusdAmount * borrowingFee;
   $: calculatedIcusdAmount = icusdAmount - calculatedBorrowFee;
   $: calculatedCollateralRatio = icpAmount > 0 && icusdAmount >= 0.001 
@@ -56,36 +60,56 @@
       ? '>1,000,000' 
       : formatNumber(calculatedCollateralRatio);
 
-  $: isValidCollateralRatio = calculatedCollateralRatio >= 130;
+  // Price trend tracking
+  $: priceTrend = icpPrice > previousPrice 
+    ? 'up' : icpPrice < previousPrice 
+    ? 'down' : '';
 
-  async function fetchData() {
-    isLoadingStatus = true;
-    try {
-      const status = await protocolService.getProtocolStatus();
-      icpPrice = status.lastIcpRate;
+  // Update animated price whenever icpPrice changes
+  $: if (icpPrice > 0) {
+    console.log('Price updated to:', icpPrice, 'Previous:', previousPrice);
+    if (previousPrice === 0) {
+      // First load, set without animation
+      animatedPrice.set(icpPrice, { duration: 0 });
+    } else {
+      // Normal update with animation
+      animatedPrice.set(icpPrice);
+    }
+  }
 
-      const fees = await protocolService.getFees(100);
-      borrowingFee = fees.borrowingFee;
-      redemptionFee = fees.redemptionFee;
-
-      if (isConnected) {
-        isLoading = true;
-        const userVaults = await protocolService.getUserVaults();
-        vaults = userVaults.map(vault => ({
-          ...vault,
-          lastUpdated: Date.now(),
-          timestamp: vault.timestamp || Date.now() // Ensure timestamp is always defined
-        }));
+  // Auto-load protocol data on mount
+  onMount(() => {
+    console.log('🚀 Main page mounted - fetching protocol status...');
+    loadProtocolData();
+    refreshIcpPrice();
+    resetPriceRefreshTimer();
+    
+    return () => {
+      if (priceRefreshInterval) {
+        clearInterval(priceRefreshInterval);
+        console.log('Price refresh interval cleared on unmount');
       }
+    };
+  });
+  
+  onDestroy(() => {
+    if (priceRefreshInterval) {
+      clearInterval(priceRefreshInterval);
+      console.log('Price refresh interval cleared on destroy');
+    }
+  });
+
+  async function loadProtocolData() {
+    try {
+      await appDataStore.fetchProtocolStatus();
     } catch (error) {
-      console.error('Error fetching protocol data:', error);
-    } finally {
-      isLoadingStatus = false;
+      console.error('Error loading protocol data:', error);
+      errorMessage = 'Failed to load protocol data';
     }
   }
 
   async function createVault() {
-    if (!isConnected) {
+    if (!$isConnected) {
       errorMessage = 'Please connect your wallet first';
       return;
     }
@@ -122,29 +146,26 @@
         icusdAmount
       );
 
-      if (!borrowResult.success) {
-        errorMessage = borrowResult.error || 'Failed to borrow icUSD';
-        return;
+      if (borrowResult.success) {
+        successMessage = `Successfully created vault #${openResult.vaultId} and borrowed ${icusdAmount} icUSD!`;
+        
+        // Refresh all data after successful operation
+        if ($principal) {
+          await appDataStore.refreshAll($principal);
+        }
+        
+        // Reset form
+        icpAmount = 1;
+        icusdAmount = 5;
+      } else {
+        errorMessage = borrowResult.error || 'Failed to borrow from vault';
       }
-
-      successMessage = `Successfully created vault #${openResult.vaultId} and borrowed ${formatNumber(calculatedIcusdAmount)} icUSD`;
-
-      icpAmount = 0;
-      icusdAmount = 0;
-
-      await wallet.refreshBalance();
-
     } catch (error) {
       console.error('Error creating vault:', error);
-      errorMessage = 'An unexpected error occurred';
+      errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     } finally {
       actionInProgress = false;
     }
-  }
-
-  function updatePrice(newPrice: number) {
-    icpPrice = newPrice;
-    isPriceLoading = false;
   }
 
   function handleDevAccess() {
@@ -157,89 +178,6 @@
     }
   }
 
-  async function loadData() {
-    try {
-      const status = await protocolService.getProtocolStatus();
-      icpPrice = status.lastIcpRate;
-      isPriceLoading = false;
-
-      if (isConnected) {
-        isLoading = true;
-        const userVaults = await protocolService.getUserVaults();
-        vaults = userVaults.map(vault => ({
-          ...vault,
-          lastUpdated: Date.now(),
-          timestamp: vault.timestamp || Date.now() // Ensure timestamp is always defined
-        }));
-      }
-    } catch (err) {
-      console.error("Error loading data:", err);
-      error = err instanceof Error ? err.message : "Failed to load data";
-    } finally {
-      isLoading = false;
-    }
-  }
-
-
-
-  onMount(async () => {
-    try {
-      if ($wallet.isConnected) {
-        initialized = await permissionManager.requestAllPermissions();
-        //await vaultStore.loadVaults();
-      }
-    } catch (err) {
-      console.error('Initialization error:', err);
-      connectionError = err instanceof Error ? err.message : 'Connection error';
-    }
-  });
-
-  onMount(fetchData); // Perhaps use fetchData() here instead
-
-  // Add this to debug price display issues
-  onMount(async () => {
-    try {
-      // Get the price directly and log it
-      const price = await protocolService.getICPPrice();
-      console.log('Direct ICP price check:', price);
-      
-      // Get full status to compare
-      const status = await protocolService.getProtocolStatus();
-      console.log('Protocol status with price:', status);
-      console.log('ICP price from status:', status.lastIcpRate);
-    } catch (error) {
-      console.error('Error in price verification:', error);
-    }
-  });
-
-  // Enhanced price tracking logic
-  let animatedPrice = tweened(0, {
-    duration: 600,
-    easing: cubicOut
-  });
-  let previousPrice = 0;
-  let priceRefreshInterval: ReturnType<typeof setInterval>;
-  let lastPriceUpdateTime = '';
-  let priceUpdateError = false;
-  let priceRefreshCount = 0;
-  
-  // Price trend tracking
-  $: priceTrend = icpPrice > previousPrice 
-    ? 'up' : icpPrice < previousPrice 
-    ? 'down' : '';
-    
-  // Update animated price whenever icpPrice changes
-  $: if (icpPrice > 0) {
-    console.log('Price updated to:', icpPrice, 'Previous:', previousPrice);
-    if (previousPrice === 0) {
-      // First load, set without animation
-      animatedPrice.set(icpPrice, { duration: 0 });
-    } else {
-      // Normal update with animation
-      animatedPrice.set(icpPrice);
-    }
-  }
-  
   // More reliable fetch implementation
   async function refreshIcpPrice() {
     try {
@@ -252,12 +190,12 @@
         previousPrice = icpPrice;
       }
       
-      // Get price directly from service to ensure fresh data
-      const newPrice = await protocolService.getICPPrice();
+      // Get price from centralized store
+      const protocolStatus = await appDataStore.fetchProtocolStatus(true);
+      const newPrice = protocolStatus?.lastIcpRate || 0;
       console.log(`Price received: ${newPrice}, previous: ${previousPrice}`);
       
       if (newPrice > 0) {
-        icpPrice = newPrice;
         priceRefreshCount++;
         lastPriceUpdateTime = new Date().toLocaleTimeString();
       } else {
@@ -283,29 +221,6 @@
     priceRefreshInterval = setInterval(refreshIcpPrice, 30000);
     console.log('Price refresh interval set: refresh every 30s');
   }
-  
-  // Improved mount/unmount handling
-  onMount(() => {
-    // Immediate initial fetch
-    refreshIcpPrice();
-    
-    // Set up regular refresh
-    resetPriceRefreshTimer();
-    
-    return () => {
-      if (priceRefreshInterval) {
-        clearInterval(priceRefreshInterval);
-        console.log('Price refresh interval cleared on unmount');
-      }
-    };
-  });
-  
-  onDestroy(() => {
-    if (priceRefreshInterval) {
-      clearInterval(priceRefreshInterval);
-      console.log('Price refresh interval cleared on destroy');
-    }
-  });
 </script>
 
 <svelte:head>
@@ -528,9 +443,9 @@
             <button
               class="w-full py-3 px-6 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 rounded-lg text-white font-medium transition-colors"
               on:click={createVault}
-              disabled={actionInProgress || !isConnected}
+              disabled={actionInProgress || !$isConnected}
             >
-              {#if !isConnected}
+              {#if !$isConnected}
                 Connect Wallet to Continue
               {:else if actionInProgress}
                 Creating Vault...
@@ -612,6 +527,7 @@
 
   input[type=number] {
     -moz-appearance: textfield;
+    appearance: textfield;
   }
 
   @keyframes bounce {

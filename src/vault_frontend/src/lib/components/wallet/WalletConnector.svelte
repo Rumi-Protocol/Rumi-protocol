@@ -3,7 +3,7 @@
   import { walletsList, type PNPWallet } from '@windoge98/plug-n-play';
   import { walletStore } from '../../stores/wallet';
   import { get } from 'svelte/store';
-  import { TokenService } from '../../services/tokenService';
+  import { permissionManager } from '../../services/PermissionManager';
 
   interface WalletInfo extends Omit<PNPWallet, 'adapter'> {
     id: string;
@@ -43,11 +43,13 @@
     
     try {
       connecting = true;
-      error = null; // Clear any previous errors
+      error = null;
       abortController = new AbortController();
       
       const timeoutId = setTimeout(() => abortController.abort(), 30000);
       
+      // FIXED: Connect wallet FIRST, then permissions are handled automatically
+      // The walletStore.connect() will handle permission requests internally
       await walletStore.connect(walletId);
       clearTimeout(timeoutId);
       showWalletDialog = false;
@@ -61,6 +63,7 @@
           console.warn('Initial balance refresh failed:', err);
         }
       }, 1000);
+      
     } catch (err) {
       console.error('Connection error:', err);
       error = err instanceof Error ? err.message : 'Failed to connect';

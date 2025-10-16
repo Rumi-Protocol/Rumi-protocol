@@ -5,17 +5,21 @@ import type {
     Fees
   } from '../../../../../declarations/rumi_protocol_backend/rumi_protocol_backend.did';
 import { CONFIG } from '../../config';
+import { RequestDeduplicator } from '../RequestDeduplicator';
 
 /**
  * Operations focused on querying protocol data
  */
 export class QueryOperations {
   /**
-   * Get the current protocol status
+   * Get the current protocol status - WITH REQUEST DEDUPLICATION
    */
   static async getProtocolStatus(): Promise<ProtocolStatusDTO> {
-    try {
+    return RequestDeduplicator.deduplicate('get_protocol_status', async () => {
+      console.log('Calling get_protocol_status with args:', []);
       const canisterStatus = await ApiClient.getPublicData<CanisterProtocolStatus>('get_protocol_status');
+      
+      console.log('Raw protocol status:', canisterStatus);
       
       return {
         mode: canisterStatus.mode,
@@ -25,10 +29,7 @@ export class QueryOperations {
         lastIcpTimestamp: Number(canisterStatus.last_icp_timestamp),
         totalCollateralRatio: Number(canisterStatus.total_collateral_ratio)
       };
-    } catch (err) {
-      console.error('Failed to get protocol status:', err);
-      throw new Error('Failed to get protocol status');
-    }
+    });
   }
 
   /**

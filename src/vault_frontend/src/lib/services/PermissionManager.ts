@@ -1,175 +1,340 @@
-import { CONFIG, CANISTER_IDS } from '../config';
-import { walletStore as wallet } from '../stores/wallet';
 import { browser } from '$app/environment';
-import { get } from 'svelte/store';
+import { writable, get } from 'svelte/store';
+import { Principal } from '@dfinity/principal';
+import type { Wallet } from '@windoge98/plug-n-play';
 import { selectedWalletId } from '../services/auth';
+import { pnp } from './pnp';
 
-// Add types to improve type safety
-interface WalletState {
-  isConnected: boolean;
-  principal: any;
+interface PermissionSessionState {
+  walletId: string | null;
+  principal: string | null;
+  granted: boolean;
+  pending: boolean;
+  lastPrompt: number | null;
+  error: string | null;
+}
+
+const DEFAULT_SESSION: PermissionSessionState = {
+  walletId: null,
+  principal: null,
+  granted: false,
+  pending: false,
+  lastPrompt: null,
+  error: null
+};
+
+const SESSION_STORAGE_KEY = 'rumi-permission-session-v2';
+
+function toPrincipalText(owner: Principal | string): string {
+  if (typeof owner === 'string') {
+    return owner;
+  }
+
+  if (owner instanceof Principal) {
+    return owner.toText();
+  }
+
+  if (typeof (owner as any)?.toText === 'function') {
+    return (owner as Principal).toText();
+  }
+
+  return (owner as any)?.toString?.() ?? '';
+}
+
+function fromPrincipalText(text: string | null): Principal | null {
+  try {
+    return text ? Principal.fromText(text) : null;
+  } catch {
+    return null;
+  }
 }
 
 export class PermissionManager {
-  private permissionsGranted = false;
-  private walletTypeCache: string | null = null;
-  private permissionsRequestTime = 0;
-  private permissionsExpiryTime = 24 * 60 * 60 * 1000; // 24 hours
-  
+  private readonly store = writable<PermissionSessionState>(DEFAULT_SESSION);
+  private ongoingRequest: Promise<Wallet.Account | null> | null = null;
+
   constructor() {
-    // Monitor selectedWalletId changes
     if (browser) {
-      selectedWalletId.subscribe(id => {
-        if (id !== this.walletTypeCache) {
-          // Reset permissions state when wallet changes
-          this.permissionsGranted = false;
-          this.walletTypeCache = id;
-          this.permissionsRequestTime = 0;
-          console.log('PermissionManager detected wallet change:', id);
-        }
+      this.restoreFromSession();
+    }
+  }
+
+  subscribe = this.store.subscribe;
+
+  /**
+   * Ensure permissions are granted for the active wallet. Returns true when permissions are available.
+   */
+  async ensurePermissions(walletId?: string): Promise<boolean> {
+    try {
+      const account = await this.connect(walletId);
+      return Boolean(account?.owner);
+    } catch (error) {
+      console.error('Failed to ensure wallet permissions:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Establish a session with the wallet and guarantee a single upfront permission confirmation.
+   * Returns the wallet account when successful.
+   */
+  async connect(walletId?: string): Promise<Wallet.Account | null> {
+    const resolvedWalletId = this.resolveWalletId(walletId);
+
+    if (!resolvedWalletId) {
+      const message = 'Wallet not selected. Please choose a wallet before requesting permissions.';
+      this.setState({
+        walletId: null,
+        principal: null,
+        granted: false,
+        pending: false,
+        lastPrompt: Date.now(),
+        error: message
       });
+      throw new Error(message);
     }
-  }
 
-  // Set up all required canister permissions
-  async requestAllPermissions(): Promise<boolean> {
-    if (!browser) {
-      return false;
+    const existingAccount = this.reuseExistingSession(resolvedWalletId);
+    if (existingAccount) {
+      return existingAccount;
+    }
+
+    if (!this.ongoingRequest) {
+      this.ongoingRequest = this.performConnection(resolvedWalletId);
     }
 
     try {
-      // Check if permissions are still valid
-      if (this.permissionsGranted && 
-          Date.now() - this.permissionsRequestTime < this.permissionsExpiryTime) {
-        console.log('PermissionManager: permissions already granted and not expired');
-        return true;
+      const account = await this.ongoingRequest;
+      return account;
+    } finally {
+      this.ongoingRequest = null;
+    }
+  }
+
+  /**
+   * Returns the last known permission state.
+   */
+  getState(): PermissionSessionState {
+    return get(this.store);
+  }
+
+  /**
+   * Indicates whether active permissions exist.
+   */
+  hasPermissions(): boolean {
+    const state = this.getState();
+    return state.granted && Boolean(state.principal);
+  }
+
+  /**
+   * Provides the active principal, if any.
+   */
+  getActivePrincipal(): Principal | null {
+    const state = this.getState();
+    return fromPrincipalText(state.principal);
+  }
+
+  /**
+   * Clears cached permission data. Should be called on disconnect or explicit reset.
+   */
+  clearCache(): void {
+    this.resetState();
+  }
+
+  /**
+   * Disconnects from the current wallet and clears cached permissions.
+   */
+  async disconnect(): Promise<void> {
+    try {
+      await pnp.disconnect();
+    } catch (error) {
+      console.warn('Failed to disconnect wallet provider cleanly:', error);
+    } finally {
+      this.resetState();
+    }
+  }
+
+  /**
+   * Legacy helpers retained for backwards compatibility with older call sites.
+   */
+  async requestAllPermissions(walletId?: string): Promise<boolean> {
+    return this.ensurePermissions(walletId);
+  }
+
+  async checkPermissions(walletId?: string): Promise<boolean> {
+    return this.ensurePermissions(walletId);
+  }
+
+  clearWalletCache(): void {
+    this.resetState();
+  }
+
+  private async performConnection(walletId: string): Promise<Wallet.Account | null> {
+    this.updateState((state) => ({
+      ...state,
+      walletId,
+      pending: true,
+      error: null
+    }));
+
+    try {
+      const account = await pnp.connect(walletId);
+
+      if (!account?.owner) {
+        throw new Error('Wallet connection did not return a valid owner principal.');
       }
-      
-      const walletState = this.getWalletState();
-      if (!walletState.isConnected) {
-        return false;
+
+      const principalText = toPrincipalText(account.owner);
+
+      const updated: PermissionSessionState = {
+        walletId,
+        principal: principalText,
+        granted: true,
+        pending: false,
+        lastPrompt: Date.now(),
+        error: null
+      };
+
+      this.setState(updated);
+      selectedWalletId.set(walletId);
+
+      return account;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      this.setState({
+        walletId,
+        principal: null,
+        granted: false,
+        pending: false,
+        lastPrompt: Date.now(),
+        error: message
+      });
+
+      throw error;
+    }
+  }
+
+  private reuseExistingSession(walletId: string): Wallet.Account | null {
+    const currentState = this.getState();
+    const isPersistedMatch = currentState.granted && currentState.walletId === walletId;
+  const pnpAccount = (pnp as any)?.account as Wallet.Account | null;
+  const activeWalletId = (pnp as any)?.activeWallet?.id as string | undefined;
+  const isActive = Boolean((pnp as any)?.isConnected?.()) && activeWalletId === walletId && pnpAccount?.owner;
+
+    if (!isPersistedMatch && !isActive) {
+      return null;
+    }
+
+    if (pnpAccount?.owner) {
+      const principalText = toPrincipalText(pnpAccount.owner);
+      this.setState({
+        walletId,
+        principal: principalText,
+        granted: true,
+        pending: false,
+        lastPrompt: currentState.lastPrompt ?? Date.now(),
+        error: null
+      });
+      return pnpAccount;
+    }
+
+    const restoredPrincipal = fromPrincipalText(currentState.principal);
+    if (restoredPrincipal) {
+      const syntheticAccount: Wallet.Account = {
+        owner: restoredPrincipal,
+        type: (pnp as any)?.activeWallet?.id ?? walletId
+      } as Wallet.Account;
+
+      this.setState({
+        walletId,
+        principal: restoredPrincipal.toText(),
+        granted: true,
+        pending: false,
+        lastPrompt: currentState.lastPrompt ?? Date.now(),
+        error: null
+      });
+
+      return syntheticAccount;
+    }
+
+    return null;
+  }
+
+  private resolveWalletId(explicitWalletId?: string): string | null {
+    if (explicitWalletId) {
+      return explicitWalletId;
+    }
+
+    const storeWallet = get(selectedWalletId);
+    if (storeWallet) {
+      return storeWallet;
+    }
+
+    if (browser) {
+      const lastWallet = localStorage.getItem('rumi_last_wallet');
+      if (lastWallet) {
+        return lastWallet;
       }
+    }
 
-      // Get the actual wallet ID that was used for connection
-      const currentWalletId = get(selectedWalletId);
-      console.log('PermissionManager: requesting permissions for wallet:', currentWalletId);
-      
-      // Request permissions based on wallet type
-      if (currentWalletId === 'plug') {
-        if (!window.ic?.plug) {
-          throw new Error('Plug wallet not available');
-        }
+    const state = this.getState();
+    return state.walletId;
+  }
 
-        // Determine the correct ledger IDs based on network environment
-        const icpLedgerId = CONFIG.isLocal ? CONFIG.currentIcpLedgerId : CANISTER_IDS.ICP_LEDGER;
-        const icusdLedgerId = CONFIG.isLocal ? CONFIG.currentIcusdLedgerId : CANISTER_IDS.ICUSD_LEDGER;
-        
-        console.log('PermissionManager: requesting Plug permissions for canisters:');
-        console.log('Protocol:', CONFIG.currentCanisterId);
-        console.log('ICP Ledger:', icpLedgerId);
-        console.log('icUSD Ledger:', icusdLedgerId);
+  private restoreFromSession(): void {
+    try {
+      const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      if (!raw) return;
 
-        const canistersToRequest = [
-          CONFIG.currentCanisterId,
-          icpLedgerId,
-          icusdLedgerId
-        ];
+      const parsed = JSON.parse(raw) as PermissionSessionState;
+      const restoredPrincipal = fromPrincipalText(parsed.principal);
 
-        await window.ic.plug.requestConnect({
-          whitelist: canistersToRequest,
-          host: CONFIG.host
+      if (parsed.walletId && restoredPrincipal) {
+        this.store.set({
+          walletId: parsed.walletId,
+          principal: restoredPrincipal.toText(),
+          granted: Boolean(parsed.granted),
+          pending: false,
+          lastPrompt: parsed.lastPrompt ?? null,
+          error: null
         });
-
-        const result = await window.ic.plug.isConnected();
-        if (result) {
-          this.permissionsGranted = true;
-          this.permissionsRequestTime = Date.now();
-        }
-        return result;
-      }
-      
-      // Internet Identity or other wallets don't need explicit permission requests
-      else {
-        console.log('PermissionManager: No explicit permissions needed for wallet:', currentWalletId);
-        this.permissionsGranted = true;
-        this.permissionsRequestTime = Date.now();
-        return true;
       }
     } catch (error) {
-      console.error('PermissionManager: Error requesting permissions:', error);
-      return false;
+      console.warn('Failed to restore permission session from storage:', error);
+      this.store.set(DEFAULT_SESSION);
     }
   }
 
-  // Check if all permissions are granted with expiration
-  async checkPermissions(): Promise<boolean> {
-    if (!browser) {
-      return false;
-    }
+  private persist(state: PermissionSessionState): void {
+    if (!browser) return;
 
     try {
-      // First check our cached state
-      if (this.permissionsGranted && 
-          Date.now() - this.permissionsRequestTime < this.permissionsExpiryTime) {
-        return true;
-      }
-
-      // Otherwise check with wallet
-      const walletState = this.getWalletState();
-      
-      if (!walletState.isConnected) {
-        return false;
-      }
-
-      const currentWalletId = get(selectedWalletId);
-      
-      if (currentWalletId === 'plug') {
-        if (!window.ic?.plug) {
-          return false;
-        }
-
-        const isConnected = await window.ic.plug.isConnected();
-        if (isConnected) {
-          this.permissionsGranted = true;
-          this.permissionsRequestTime = Date.now();
-        }
-        return isConnected;
-      } else {
-        // For Internet Identity and others, assume permissions are granted
-        this.permissionsGranted = true;
-        this.permissionsRequestTime = Date.now();
-        return true;
-      }
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
-      console.error('Error checking permissions:', error);
-      return false;
+      console.warn('Unable to persist permission session state:', error);
     }
   }
 
-  // Reset permissions state
-  resetPermissions(): void {
-    this.permissionsGranted = false;
-    this.permissionsRequestTime = 0;
+  private setState(state: PermissionSessionState): void {
+    this.store.set(state);
+    this.persist(state);
   }
 
-  // Helper to get current wallet state
-  private getWalletState(): WalletState {
-    const walletState = get(wallet);
-    return {
-      isConnected: walletState.isConnected,
-      principal: walletState.principal
-    };
+  private updateState(updater: (state: PermissionSessionState) => PermissionSessionState): void {
+    this.store.update((current) => {
+      const updated = updater(current);
+      this.persist(updated);
+      return updated;
+    });
   }
-  
-  // New helper method to ensure permissions are granted
-  async ensurePermissions(): Promise<boolean> {
-    const hasPermissions = await this.checkPermissions();
-    if (!hasPermissions) {
-      return await this.requestAllPermissions();
+
+  private resetState(): void {
+    this.store.set(DEFAULT_SESSION);
+    if (browser) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
     }
-    return true;
   }
 }
 
-// Export a singleton instance
 export const permissionManager = new PermissionManager();

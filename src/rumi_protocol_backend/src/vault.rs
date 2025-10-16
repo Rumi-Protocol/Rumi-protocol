@@ -97,6 +97,15 @@ pub async fn redeem_icp(_icusd_amount: u64) -> Result<SuccessWithFee, ProtocolEr
             ic_cdk_timers::set_timer(std::time::Duration::from_secs(0), || {
                 ic_cdk::spawn(crate::process_pending_transfer())
             });
+            
+            // Schedule redemption fee routing (async - don't block on failure)
+            if fee_amount.to_u64() > 0 {
+                let fee_u64 = fee_amount.to_u64();
+                ic_cdk_timers::set_timer(std::time::Duration::from_secs(1), move || {
+                    ic_cdk::spawn(route_redemption_fee_to_treasury(fee_u64, block_index));
+                });
+            }
+            
             Ok(SuccessWithFee {
                 block_index,
                 fee_amount_paid: fee_amount.to_u64(),
@@ -246,6 +255,19 @@ pub async fn borrow_from_vault(arg: VaultArg) -> Result<SuccessWithFee, Protocol
             mutate_state(|s| {
                 record_borrow_from_vault(s, arg.vault_id, amount, fee, block_index);
             });
+            
+            // Schedule treasury fee routing (async - don't block on failure)
+            if fee.to_u64() > 0 {
+                let vault_id = arg.vault_id;
+                let fee_amount = fee.to_u64();
+                ic_cdk_timers::set_timer(std::time::Duration::from_secs(0), move || {
+                    ic_cdk::spawn(route_minting_fee_to_treasury(
+                        vault_id,
+                        fee_amount,
+                        block_index
+                    ));
+                });
+            }
             
             guard_principal.complete();
             
@@ -698,6 +720,147 @@ pub async fn withdraw_and_close_vault(vault_id: u64) -> Result<Option<u64>, Prot
     Ok(block_index)
 }
 
+pub async fn liquidate_vault_partial(vault_id: u64, icusd_amount: u64) -> Result<SuccessWithFee, ProtocolError> {
+    let caller = ic_cdk::api::caller();
+    let guard_principal = GuardPrincipal::new(caller, &format!("liquidate_vault_partial_{}", vault_id))?;
+    
+    let liquidation_amount: ICUSD = icusd_amount.into();
+    
+    if liquidation_amount < MIN_ICUSD_AMOUNT {
+        guard_principal.fail();
+        return Err(ProtocolError::AmountTooLow {
+            minimum_amount: MIN_ICUSD_AMOUNT.to_u64(),
+        });
+    }
+    
+    // Step 1: Validate vault is liquidatable and get partial liquidation amounts
+    let (vault, icp_rate, _mode, max_liquidatable_debt, collateral_to_liquidator) = match read_state(|s| {
+        match s.vault_id_to_vaults.get(&vault_id) {
+            Some(vault) => {
+                let icp_rate = s.last_icp_rate.expect("no icp rate");
+                let ratio = compute_collateral_ratio(vault, icp_rate);
+                
+                if ratio >= s.mode.get_minimum_liquidation_collateral_ratio() {
+                    Err(format!(
+                        "Vault #{} is not liquidatable. Current ratio: {}, minimum: {}",
+                        vault_id, 
+                        ratio.to_f64(), 
+                        s.mode.get_minimum_liquidation_collateral_ratio().to_f64()
+                    ))
+                } else {
+                    // Calculate maximum liquidatable debt (e.g., 50% of total debt)
+                    let max_liquidation_ratio = Ratio::new(dec!(0.5)); // 50% max
+                    let max_liquidatable = vault.borrowed_icusd_amount * max_liquidation_ratio;
+                    
+                    // Ensure requested amount doesn't exceed maximum
+                    let actual_liquidation_amount = liquidation_amount.min(max_liquidatable).min(vault.borrowed_icusd_amount);
+                    
+                    if actual_liquidation_amount == ICUSD::new(0) {
+                        return Err("Cannot liquidate zero amount".to_string());
+                    }
+                    
+                    // Calculate collateral to transfer (debt + 10% bonus)
+                    let liquidation_bonus = Ratio::new(dec!(1.1)); // 110% (10% bonus)
+                    let icp_equivalent = actual_liquidation_amount / icp_rate;
+                    let collateral_with_bonus = icp_equivalent * liquidation_bonus;
+                    let collateral_to_transfer = collateral_with_bonus.min(vault.icp_margin_amount);
+                    
+                    Ok((vault.clone(), icp_rate, s.mode, actual_liquidation_amount, collateral_to_transfer))
+                }
+            },
+            None => Err(format!("Vault #{} not found", vault_id)),
+        }
+    }) {
+        Ok(result) => result,
+        Err(msg) => {
+            guard_principal.fail();
+            return Err(ProtocolError::GenericError(msg));
+        }
+    };
+
+    log!(INFO, 
+        "[liquidate_vault_partial] Vault #{}: liquidating {} icUSD (max: {}), getting {} ICP collateral",
+        vault_id, 
+        max_liquidatable_debt.to_u64(),
+        vault.borrowed_icusd_amount.to_u64(),
+        collateral_to_liquidator.to_u64()
+    );
+    
+    // Step 2: Take icUSD from liquidator
+    let icusd_block_index = match transfer_icusd_from(max_liquidatable_debt, caller).await {
+        Ok(block_index) => {
+            log!(INFO, "[liquidate_vault_partial] Received {} icUSD from liquidator", max_liquidatable_debt.to_u64());
+            block_index
+        },
+        Err(transfer_from_error) => {
+            guard_principal.fail();
+            return Err(ProtocolError::TransferFromError(transfer_from_error, max_liquidatable_debt.to_u64()));
+        }
+    };
+    
+    // Step 3: Update protocol state (partial liquidation)
+    mutate_state(|s| {
+        s.liquidate_vault_partial(vault_id, max_liquidatable_debt, collateral_to_liquidator, icp_rate);
+        
+        // Record the partial liquidation event
+        let event = crate::event::Event::PartialLiquidateVault {
+            vault_id,
+            liquidated_debt: max_liquidatable_debt,
+            collateral_seized: collateral_to_liquidator,
+            liquidator: Some(caller),
+            icp_rate,
+        };
+        crate::storage::record_event(&event);
+        
+        // Create pending transfer for liquidator reward
+        s.pending_margin_transfers.insert(
+            vault_id, 
+            PendingMarginTransfer {
+                owner: caller,
+                margin: collateral_to_liquidator,
+            },
+        );
+        
+        log!(INFO, "[liquidate_vault_partial] Partial liquidation completed, {} pending transfers created", 1);
+    });
+    
+    // Step 4: Process transfer (same as complete liquidation)
+    match try_process_pending_transfers_immediate(vault_id).await {
+        Ok(processed_count) => {
+            log!(INFO, "[liquidate_vault_partial] Successfully processed {} transfers immediately", processed_count);
+        },
+        Err(e) => {
+            log!(INFO, "[liquidate_vault_partial] Immediate processing failed: {}. Transfers will be retried via timer", e);
+            schedule_transfer_retry(vault_id, 0);
+        }
+    }
+    
+    ic_cdk_timers::set_timer(std::time::Duration::from_secs(2), move || {
+        ic_cdk::spawn(async move {
+            log!(INFO, "[liquidate_vault_partial] Backup timer processing transfers for vault #{}", vault_id);
+            let _ = crate::process_pending_transfer().await;
+        })
+    });
+    
+    guard_principal.complete();
+    
+    // Calculate fee (liquidator bonus)
+    let liquidator_value_received = collateral_to_liquidator * icp_rate;
+    let fee_amount = if liquidator_value_received > max_liquidatable_debt {
+        liquidator_value_received - max_liquidatable_debt
+    } else {
+        ICUSD::new(0)
+    };
+    
+    log!(INFO, "[liquidate_vault_partial] Partial liquidation completed. Block index: {}, Fee: {}", 
+         icusd_block_index, fee_amount.to_u64());
+    
+    Ok(SuccessWithFee {
+        block_index: icusd_block_index,
+        fee_amount_paid: fee_amount.to_u64(),
+    })
+}
+
 pub async fn liquidate_vault(vault_id: u64) -> Result<SuccessWithFee, ProtocolError> {
     let caller = ic_cdk::api::caller();
     let guard_principal = GuardPrincipal::new(caller, &format!("liquidate_vault_{}", vault_id))?;
@@ -926,4 +1089,107 @@ fn schedule_transfer_retry(vault_id: u64, retry_count: u32) {
             }
         })
     });
+}
+
+// Treasury integration functions
+
+async fn route_minting_fee_to_treasury(
+    vault_id: u64,
+    fee_amount: u64,
+    block_index: u64
+) {
+    let treasury_principal = read_state(|s| s.treasury_principal);
+    
+    if let Some(treasury_principal) = treasury_principal {
+        let deposit_args = crate::state::TreasuryDepositArgs {
+            deposit_type: crate::state::TreasuryFeeType::MintingFee,
+            asset_type: crate::state::TreasuryAssetType::ICUSD,
+            amount: fee_amount,
+            block_index,
+            memo: Some(format!("Minting fee from vault {}", vault_id)),
+        };
+        
+        let call_result: Result<(Result<u64, String>,), _> = ic_cdk::call(
+            treasury_principal,
+            "deposit",
+            (deposit_args,),
+        ).await;
+
+        match call_result {
+            Ok((Ok(_deposit_id),)) => {
+                log!(
+                    INFO,
+                    "[treasury] Minting fee {} icUSD from vault {} routed to treasury", 
+                    fee_amount, vault_id
+                );
+            }
+            Ok((Err(err),)) => {
+                log!(
+                    DEBUG,
+                    "[treasury] Treasury deposit failed for vault {}: {}", 
+                    vault_id, err
+                );
+            }
+            Err(call_err) => {
+                log!(
+                    DEBUG,
+                    "[treasury] Failed to call treasury for vault {}: {:?}", 
+                    vault_id, call_err
+                );
+            }
+        }
+    } else {
+        log!(
+            INFO,
+            "[treasury] No treasury configured, minting fee {} from vault {} not routed",
+            fee_amount, vault_id
+        );
+    }
+}
+
+async fn route_redemption_fee_to_treasury(
+    fee_amount: u64,
+    block_index: u64
+) {
+    let treasury_principal = read_state(|s| s.treasury_principal);
+    
+    if let Some(treasury_principal) = treasury_principal {
+        let deposit_args = crate::state::TreasuryDepositArgs {
+            deposit_type: crate::state::TreasuryFeeType::RedemptionFee,
+            asset_type: crate::state::TreasuryAssetType::ICUSD,
+            amount: fee_amount,
+            block_index,
+            memo: Some("Redemption fee".to_string()),
+        };
+        
+        let call_result: Result<(Result<u64, String>,), _> = ic_cdk::call(
+            treasury_principal,
+            "deposit",
+            (deposit_args,),
+        ).await;
+
+        match call_result {
+            Ok((Ok(_deposit_id),)) => {
+                log!(
+                    INFO,
+                    "[treasury] Redemption fee {} icUSD routed to treasury", 
+                    fee_amount
+                );
+            }
+            Ok((Err(err),)) => {
+                log!(
+                    DEBUG,
+                    "[treasury] Treasury deposit failed for redemption fee: {}", 
+                    err
+                );
+            }
+            Err(call_err) => {
+                log!(
+                    DEBUG,
+                    "[treasury] Failed to call treasury for redemption fee: {:?}", 
+                    call_err
+                );
+            }
+        }
+    }
 }

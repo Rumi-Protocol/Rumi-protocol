@@ -229,14 +229,14 @@ fn get_vaults(target: Option<Principal>) -> Vec<CandidVault> {
         Some(target) => read_state(|s| match s.principal_to_vault_ids.get(&target) {
             Some(vault_ids) => vault_ids
                 .iter()
-                .map(|id| {
-                    let vault = s.vault_id_to_vaults.get(id).cloned().unwrap();
-                    CandidVault {
+                .filter_map(|id| {
+                    // Use filter_map with proper error handling instead of unwrap
+                    s.vault_id_to_vaults.get(id).map(|vault| CandidVault {
                         owner: vault.owner,
                         borrowed_icusd_amount: vault.borrowed_icusd_amount.to_u64(),
                         icp_margin_amount: vault.icp_margin_amount.to_u64(),
                         vault_id: vault.vault_id,
-                    }
+                    })
                 })
                 .collect(),
             None => vec![],
@@ -324,12 +324,17 @@ async fn withdraw_and_close_vault(vault_id: u64) -> Result<Option<u64>, Protocol
     check_postcondition(rumi_protocol_backend::vault::withdraw_and_close_vault(vault_id).await)
 }
 
-// Add the new liquidate vault endpoint
-#[candid_method(update)]
+// Add the new liquidate vault endpoints
 #[update]
+#[candid_method(update)]
 async fn liquidate_vault(vault_id: u64) -> Result<SuccessWithFee, ProtocolError> {
-    validate_call()?;
     check_postcondition(rumi_protocol_backend::vault::liquidate_vault(vault_id).await)
+}
+
+#[update]
+#[candid_method(update)]
+async fn liquidate_vault_partial(vault_id: u64, icusd_amount: u64) -> Result<SuccessWithFee, ProtocolError> {
+    check_postcondition(rumi_protocol_backend::vault::liquidate_vault_partial(vault_id, icusd_amount).await)
 }
 
 // Add the new get liquidatable vaults endpoint
@@ -623,6 +628,32 @@ async fn recover_pending_transfer(vault_id: u64) -> Result<bool, ProtocolError> 
         // No pending transfer found for this vault
         Err(ProtocolError::GenericError("No pending transfer found for this vault".to_string()))
     }
+}
+
+// Add treasury configuration endpoint (developer only)
+#[candid_method(update)]
+#[update]
+async fn set_treasury_principal(treasury_principal: Principal) -> Result<(), ProtocolError> {
+    let caller = ic_cdk::caller();
+    
+    // Only developer can set treasury principal
+    let is_developer = read_state(|s| s.developer_principal == caller);
+    if (!is_developer) {
+        return Err(ProtocolError::GenericError("Only developer can set treasury principal".to_string()));
+    }
+    
+    mutate_state(|s| {
+        s.set_treasury_principal(treasury_principal);
+    });
+    
+    log!(INFO, "[set_treasury_principal] Treasury principal set to: {}", treasury_principal);
+    Ok(())
+}
+
+#[candid_method(query)]
+#[query]
+fn get_treasury_principal() -> Option<Principal> {
+    read_state(|s| s.get_treasury_principal())
 }
 
 // Checks the real candid interface against the one declared in the did file

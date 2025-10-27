@@ -71,15 +71,55 @@ function createPermissionStore() {
     
     // Initialize permissions - call this on app startup
     async init() {
-      // Try to load from session first
-      const sessionPerms = loadFromSession();
-      if (sessionPerms) {
-        set(sessionPerms);
-        console.log('Loaded permissions from session cache');
+      try {
+        console.log('Starting permission initialization...');
+        
+        // Try to load from session first
+        const sessionPerms = loadFromSession();
+        if (sessionPerms) {
+          set(sessionPerms);
+          console.log('Loaded permissions from session cache');
+          return true;
+        }
+        
+        // FIXED: Removed circular dependency - don't call walletStore during init
+        // Instead, permissions are set when wallet connects and layout calls this
+        
+        // Set default permissions for any connected user
+        console.log('Setting default permissions for connected user');
+        const isDev = sessionStorage.getItem('rumi-dev-access') === 'true';
+        
+        const permissions: PermissionState = {
+          // Basic permissions for any connected wallet - no backend calls needed
+          canCreateVault: true,
+          canViewVaults: true, // Allow viewing vaults for all connected users
+          canUseAdminTools: isDev,
+          // Roles
+          isAdmin: false,
+          isDeveloper: isDev,
+          // Status
+          initialized: true,
+          error: null,
+          lastChecked: Date.now()
+        };
+        
+        set(permissions);
+        saveToSession(permissions);
+        
+        console.log('Permissions initialized successfully:', permissions);
         return true;
+        
+      } catch (error) {
+        console.error('Permission initialization failed:', error);
+        const errorState = {
+          ...DEFAULT_PERMISSIONS,
+          initialized: true,
+          error: error instanceof Error ? error.message : 'Failed to initialize permissions',
+          lastChecked: Date.now()
+        };
+        set(errorState);
+        return false;
       }
-      
-      return this.refresh();
     },
     
     // Refresh permissions from the backend
@@ -170,20 +210,5 @@ function createPermissionStore() {
 
 export const permissionStore = createPermissionStore();
 
-// Initialize on module load if browser environment
-if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    permissionStore.init().catch(err => {
-      console.error('Failed to initialize permission store:', err);
-    });
-    
-    // Also subscribe to wallet changes to update permissions
-    walletStore.subscribe(state => {
-      if (state.isConnected !== get(permissionStore).initialized) {
-        permissionStore.refresh().catch(err => {
-          console.error('Failed to refresh permissions after wallet change:', err);
-        });
-      }
-    });
-  }, 0);
-}
+// REMOVED: Automatic initialization that causes circular dependency
+// Instead, initialization will be handled explicitly in the layout component

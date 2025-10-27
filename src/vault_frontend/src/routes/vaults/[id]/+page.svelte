@@ -15,8 +15,6 @@
   $: vaultId = parseInt($page.params.id) || 0;
   
   // State management with proper types
-  let isConnected = $walletStore.isConnected;
-  let principal = $walletStore.principal;
   let vault: EnhancedVault | null = null;
   let isLoading = true;
   let error = '';
@@ -27,12 +25,22 @@
   let passkey = "";
   let passkeyError = "";
   
-  // Subscribe to wallet state changes
+  // Reactive declarations with proper typing
   $: isConnected = $walletStore.isConnected;
   $: principal = $walletStore.principal;
+  $: canViewVaults = isDevelopment || $developerAccess || isConnected || ($permissionStore.initialized && $permissionStore.canViewVaults);
   
-  // Check for developer access
-  $: isDeveloperMode = isDevelopment || $permissionStore.isDeveloper;
+  // Debug logging for vault access
+  $: if (typeof canViewVaults !== 'undefined') {
+    console.log('🔍 Vault detail access check:', {
+      isDevelopment,
+      developerAccess: $developerAccess,
+      isConnected,
+      permissionStoreInitialized: $permissionStore.initialized,
+      permissionStoreCanViewVaults: $permissionStore.canViewVaults,
+      finalCanViewVaults: canViewVaults
+    });
+  }
   
   // Handle developer passkey submission
   function handlePasskeySubmit() {
@@ -50,15 +58,16 @@
   
   // Load vault data
   async function loadVault() {
-    if (!isConnected) {
-      goto('/');
+    // Check for vault access first - developer access can bypass wallet connection
+    if (!canViewVaults) {
+      error = 'Vault access required';
+      isLoading = false;
       return;
     }
     
-    // Check for developer access
-    if (!isDeveloperMode) {
-      error = 'Developer access required';
-      isLoading = false;
+    // If not in developer mode, require wallet connection
+    if (!$developerAccess && !isConnected) {
+      goto('/');
       return;
     }
     
@@ -75,15 +84,32 @@
         const status = await protocolService.getProtocolStatus();
         icpPrice = status.lastIcpRate;
         
-        // Get user vaults and filter by ID
-        const userVaults = await protocolService.getUserVaults();
-        const foundVault = userVaults.find(v => v.vaultId === vaultId);
-        
-        if (foundVault) {
-          // Enhance vault with calculated properties
-          vault = vaultStore.enhanceVault(foundVault, icpPrice);
+        // In developer mode without wallet, show placeholder info
+        if ($developerAccess && !isConnected) {
+          // Create a demo vault for developer mode
+          vault = {
+            vaultId,
+            owner: 'developer-mode-principal',
+            icpMargin: 10.0, // 10 ICP collateral
+            borrowedIcusd: 50.0, // 50 icUSD borrowed
+            timestamp: Date.now(),
+            lastUpdated: Date.now(),
+            collateralRatio: 200.0, // 200% ratio
+            collateralValueUSD: 10.0 * icpPrice,
+            maxBorrowable: 75.0, // Can borrow up to 75 icUSD
+            status: 'healthy' as const
+          };
         } else {
-          error = 'Vault not found or you do not have permission to access it';
+          // Get user vaults and filter by ID
+          const userVaults = await protocolService.getUserVaults();
+          const foundVault = userVaults.find(v => v.vaultId === vaultId);
+          
+          if (foundVault) {
+            // Enhance vault with calculated properties
+            vault = vaultStore.enhanceVault(foundVault, icpPrice);
+          } else {
+            error = 'Vault not found or you do not have permission to access it';
+          }
         }
       } else {
         // We already have the vault data from the store
@@ -99,9 +125,16 @@
     }
   }
   
+  // Reactive loading when access is granted - developer mode can bypass wallet connection
+  $: if (canViewVaults && ($developerAccess || isConnected) && !vault && !isLoading) {
+    console.log('🚀 Access granted, loading vault...');
+    loadVault();
+  }
+
   onMount(() => {
-    // Load vault if we already have developer access
-    if (isDeveloperMode) {
+    console.log('🚀 Vault detail page mounted for vault:', vaultId);
+    // Load vault if we already have access - developer mode can bypass wallet connection
+    if (canViewVaults && ($developerAccess || isConnected)) {
       loadVault();
     }
   });
@@ -127,18 +160,18 @@
     <p class="text-gray-400">Manage your collateral and debt position</p>
   </div>
   
-  {#if !isDeveloperMode}
+  {#if !canViewVaults}
     <!-- Developer Access Required Section -->
     <div class="bg-gray-900/50 p-6 rounded-lg shadow-lg backdrop-blur-sm border border-purple-500/30">
       <div class="flex items-center gap-2 mb-4">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 0 00-8 0v4h8z" />
         </svg>
-        <h2 class="text-2xl font-semibold">Developer Access Required</h2>
+        <h2 class="text-2xl font-semibold">Vault Access Required</h2>
       </div>
       
       <p class="text-gray-300 mb-6">
-        The vault details feature is currently in development. Please enter your developer passkey to continue.
+        Please connect your wallet to view vault details.
       </p>
       
       {#if showPasskeyInput}

@@ -126,6 +126,29 @@ thread_local! {
     static __STATE: RefCell<Option<State>> = RefCell::default();
 }
 
+// Add treasury types
+#[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
+pub enum TreasuryFeeType {
+    MintingFee,
+    RedemptionFee,
+    LiquidationPenalty,
+}
+
+#[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
+pub enum TreasuryAssetType {
+    ICP,
+    ICUSD,
+    CKBTC,
+}
+
+#[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
+pub struct TreasuryDepositArgs {
+    pub deposit_type: TreasuryFeeType,
+    pub asset_type: TreasuryAssetType,
+    pub amount: u64,
+    pub block_index: u64,
+    pub memo: Option<String>,
+}
 
 pub struct State {
     pub vault_id_to_vaults: BTreeMap<u64, Vault>,
@@ -154,6 +177,7 @@ pub struct State {
     pub operation_names: BTreeMap<Principal, String>, // Track operation names
     pub is_timer_running: bool,
     pub is_fetching_rate: bool,
+    pub treasury_principal: Option<Principal>, // Add treasury principal
 }
 
 impl From<InitArg> for State {
@@ -186,6 +210,7 @@ impl From<InitArg> for State {
             pending_margin_transfers: BTreeMap::new(),
             is_timer_running: false,
             is_fetching_rate: false,
+            treasury_principal: None, // Initialize treasury principal
         }
     }
 }
@@ -467,6 +492,31 @@ impl State {
         *self.liquidity_pool.get(&principal).unwrap_or(&ICUSD::from(0))
     }
 
+    pub fn liquidate_vault_partial(&mut self, vault_id: u64, debt_to_liquidate: ICUSD, collateral_to_seize: ICP, _icp_rate: UsdIcp) {
+        let should_remove_vault = match self.vault_id_to_vaults.get_mut(&vault_id) {
+            Some(vault) => {
+                // Reduce debt by the liquidated amount (don't zero it out)
+                vault.borrowed_icusd_amount = vault.borrowed_icusd_amount.saturating_sub(debt_to_liquidate);
+                
+                // Reduce collateral by the seized amount
+                vault.icp_margin_amount = vault.icp_margin_amount.saturating_sub(collateral_to_seize);
+                
+                // Check if vault should be removed (all debt paid off or collateral exhausted)
+                vault.borrowed_icusd_amount == ICUSD::new(0) || vault.icp_margin_amount == ICP::new(0)
+            }
+            None => ic_cdk::trap("partial liquidating unknown vault"),
+        };
+        
+        // Remove vault if needed (outside of the mutable borrow)
+        if should_remove_vault {
+            if let Some(vault) = self.vault_id_to_vaults.remove(&vault_id) {
+                if let Some(vault_ids) = self.principal_to_vault_ids.get_mut(&vault.owner) {
+                    vault_ids.remove(&vault_id);
+                }
+            }
+        }
+    }
+
     pub fn liquidate_vault(&mut self, vault_id: u64, mode: Mode, icp_rate: UsdIcp) {
         let vault = self
             .vault_id_to_vaults
@@ -477,23 +527,27 @@ impl State {
         let vault_collateral_ratio = compute_collateral_ratio(&vault, icp_rate);
         
         if mode == Mode::Recovery && vault_collateral_ratio > MINIMUM_COLLATERAL_RATIO {
-            // Partial liquidation
-            let partial_margin = (vault.borrowed_icusd_amount * MINIMUM_COLLATERAL_RATIO) / icp_rate;
-            assert!(
-                partial_margin <= vault.icp_margin_amount,
-                "partial margin: {partial_margin}, vault margin: {}",
-                vault.icp_margin_amount
-            );
+            // Partial liquidation - this should now use the new partial liquidation logic
+            // Calculate how much debt to liquidate to bring vault to minimum safe ratio
+            let target_collateral_value = vault.borrowed_icusd_amount * MINIMUM_COLLATERAL_RATIO;
+            let current_collateral_value = vault.icp_margin_amount * icp_rate;
             
-            match self.vault_id_to_vaults.get_mut(&vault_id) {
-                Some(vault) => {
-                    vault.borrowed_icusd_amount = ICUSD::new(0);
-                    
-                    // Ensure no underflow by taking the minimum
-                    let actual_deduction = partial_margin.min(vault.icp_margin_amount);
-                    vault.icp_margin_amount -= actual_deduction;
+            if current_collateral_value > target_collateral_value {
+                // Vault can be partially liquidated to become healthy
+                let excess_debt = vault.borrowed_icusd_amount - (current_collateral_value / MINIMUM_COLLATERAL_RATIO);
+                let debt_to_liquidate = excess_debt.min(vault.borrowed_icusd_amount);
+                let collateral_equivalent = debt_to_liquidate / icp_rate;
+                let liquidation_bonus = Ratio::new(dec!(1.1)); // 10% bonus
+                let collateral_to_seize = (collateral_equivalent * liquidation_bonus).min(vault.icp_margin_amount);
+                
+                self.liquidate_vault_partial(vault_id, debt_to_liquidate, collateral_to_seize, icp_rate);
+            } else {
+                // Full liquidation needed
+                if let Some(vault) = self.vault_id_to_vaults.remove(&vault_id) {
+                    if let Some(vault_ids) = self.principal_to_vault_ids.get_mut(&vault.owner) {
+                        vault_ids.remove(&vault_id);
+                    }
                 }
-                None => ic_cdk::trap("liquidating unknown vault"),
             }
         } else {
             // Full liquidation
@@ -678,6 +732,51 @@ impl State {
                 }
             }
         }
+        
+        // Clean up inconsistent vault ID mappings to prevent panics
+        self.clean_inconsistent_vault_mappings();
+    }
+    
+    // Clean up any inconsistent mappings between vault_id_to_vaults and principal_to_vault_ids
+    pub fn clean_inconsistent_vault_mappings(&mut self) {
+        let mut cleaned_count = 0;
+        
+        // Find vault IDs that exist in principal_to_vault_ids but not in vault_id_to_vaults
+        let mut vault_ids_to_remove: Vec<(Principal, u64)> = Vec::new();
+        
+        for (principal, vault_ids) in &self.principal_to_vault_ids {
+            for vault_id in vault_ids {
+                if !self.vault_id_to_vaults.contains_key(vault_id) {
+                    vault_ids_to_remove.push((*principal, *vault_id));
+                    cleaned_count += 1;
+                }
+            }
+        }
+        
+        // Remove the inconsistent vault IDs
+        for (principal, vault_id) in vault_ids_to_remove {
+            if let Some(vault_ids) = self.principal_to_vault_ids.get_mut(&principal) {
+                vault_ids.remove(&vault_id);
+                
+                // If this principal has no more vaults, remove the entry entirely
+                if vault_ids.is_empty() {
+                    self.principal_to_vault_ids.remove(&principal);
+                }
+            }
+        }
+        
+        if cleaned_count > 0 {
+            log!(INFO, "[clean_inconsistent_vault_mappings] Cleaned up {} inconsistent vault ID mappings", cleaned_count);
+        }
+    }
+    
+    // Add treasury management methods
+    pub fn set_treasury_principal(&mut self, treasury_principal: Principal) {
+        self.treasury_principal = Some(treasury_principal);
+    }
+    
+    pub fn get_treasury_principal(&self) -> Option<Principal> {
+        self.treasury_principal
     }
 }
 
@@ -713,7 +812,7 @@ pub(crate) fn distribute_across_vaults(
     let mut distributed_icusd: ICUSD = ICUSD::new(0);
 
     for (vault_id, vault) in vaults {
-        if *vault_id != target_vault_id {
+        if (*vault_id) != target_vault_id {
             let share: Ratio = vault.icp_margin_amount / total_icp_margin;
             let icp_share = target_vault.icp_margin_amount * share;
             let icusd_share = target_vault.borrowed_icusd_amount * share;

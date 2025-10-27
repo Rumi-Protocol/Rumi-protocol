@@ -1,9 +1,10 @@
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
-import { pnp } from './pnp';
+import { pnp, connectWithComprehensivePermissions } from './pnp';
 import { TokenService } from './tokenService';
 import { CONFIG, CANISTER_IDS, LOCAL_CANISTER_IDS } from '../config';
 import { canisterIDLs } from './pnp';
+import { permissionManager } from './PermissionManager';
 import type { Principal } from '@dfinity/principal';
 
 // Storage keys for persistence
@@ -47,6 +48,7 @@ function createAuthStore() {
     clear: (): void => {
       if (browser) {
         Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+        permissionManager.clearCache();
       }
     }
   };
@@ -94,7 +96,11 @@ function createAuthStore() {
     async connect(walletId: string): Promise<{owner: Principal} | null> {
       try {
         connectionError.set(null);
-        const result = await pnp.connect(walletId);
+        
+        // Use custom connect function that ensures comprehensive permissions
+        console.log('🔗 Connecting wallet with comprehensive permissions...');
+        
+        const result = await connectWithComprehensivePermissions(walletId);
         
         if (!result?.owner) {
           throw new Error("Invalid connection result");
@@ -118,6 +124,7 @@ function createAuthStore() {
         storage.set("LAST_WALLET", walletId);
         storage.set("WAS_CONNECTED", "true");
 
+        console.log('🎉 Wallet connected with comprehensive permissions via PNP initialization');
         return result;
       } catch (error) {
         this.handleConnectionError(error);
@@ -126,6 +133,9 @@ function createAuthStore() {
     },
 
     async disconnect(): Promise<void> {
+      // Clear permission cache on disconnect
+      permissionManager.clearCache();
+      
       await pnp.disconnect();
       set({ 
         isConnected: false, 
@@ -146,12 +156,18 @@ function createAuthStore() {
       });
       connectionError.set(error instanceof Error ? error.message : String(error));
       selectedWalletId.set(null);
+      // Clear permissions on error
+      permissionManager.clearCache();
     },
 
-    getActor<T>(canisterId: string, idl: any): Promise<T> {
+    async getActor<T>(canisterId: string, idl: any): Promise<T> {
       if (!pnp.isConnected()) {
         throw new Error('Wallet not connected');
       }
+
+      // FIXED: Remove permission check that causes "Permission request was denied" errors
+      // Permissions are handled by the wallet connection itself, not by explicit requests
+      // The wallet will prompt for permissions only when actually needed for transactions
 
       return pnp.getActor(canisterId, idl);
     },
@@ -160,7 +176,23 @@ function createAuthStore() {
       return pnp.isConnected();
     },
     
-    // New utility method to get the current principal
+    // Check if wallet is authenticated and has permissions
+    async isAuthenticated(): Promise<boolean> {
+      const isConnected = await this.isWalletConnected();
+      if (!isConnected) return false;
+      
+      return permissionManager.hasPermissions();
+    },
+    
+    // Ensure both connection and permissions
+    async ensureAuthenticated(): Promise<boolean> {
+      const isConnected = await this.isWalletConnected();
+      if (!isConnected) return false;
+      
+      return await permissionManager.ensurePermissions();
+    },
+    
+    // Get the current principal
     getPrincipal(): Principal | null {
       const state = get(store);
       return state.account?.owner || null;
@@ -173,7 +205,8 @@ export const auth = createAuthStore();
 
 // Helper function with more descriptive error message
 export function requireWalletConnection(): void {
-  if (!auth.isWalletConnected()) {
+  const isConnected = get(auth).isConnected;
+  if (!isConnected) {
     throw new Error("Wallet connection required. Please connect your wallet first.");
   }
 }

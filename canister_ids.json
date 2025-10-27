@@ -11,6 +11,9 @@
   "rumi_protocol_frontend": {
     "ic": "ahlhl-4iaaa-aaaai-q3ouq-cai"
   },
+  "rumi_treasury": {
+    "ic": "p4osj-vaaaa-aaaai-q33ea-cai"
+  },
   "rumi_vault": {
     "ic": "vskjr-6yaaa-aaaai-q3sca-cai"
   },

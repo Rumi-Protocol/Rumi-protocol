@@ -101,25 +101,26 @@ thread_local! {
     static __STATE: RefCell<Option<State>> = RefCell::default();
 }
 
-// Add treasury types
+// Treasury types - matching the treasury canister interface
 #[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
-pub enum TreasuryFeeType {
+pub enum DepositType {
     MintingFee,
     RedemptionFee,
-    LiquidationPenalty,
+    LiquidationSurplus,
+    StabilityFee,
 }
 
 #[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
-pub enum TreasuryAssetType {
-    ICP,
+pub enum AssetType {
     ICUSD,
+    ICP,
     CKBTC,
 }
 
 #[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
-pub struct TreasuryDepositArgs {
-    pub deposit_type: TreasuryFeeType,
-    pub asset_type: TreasuryAssetType,
+pub struct DepositArgs {
+    pub deposit_type: DepositType,
+    pub asset_type: AssetType,
     pub amount: u64,
     pub block_index: u64,
     pub memo: Option<String>,
@@ -145,13 +146,14 @@ pub struct State {
     pub icp_ledger_fee: ICP,
     pub last_icp_rate: Option<UsdIcp>,
     pub last_icp_timestamp: Option<u64>,
-    pub principal_guards: BTreeSet<Principal>,
-    pub principal_guard_timestamps: BTreeMap<Principal, u64>, // Add timestamps for guards
-    pub operation_states: BTreeMap<Principal, OperationState>, // Track operation states
-    pub operation_names: BTreeMap<Principal, String>, // Track operation names
+    pub operation_guards: BTreeSet<String>, // Changed to use operation keys instead of just principals
+    pub operation_guard_timestamps: BTreeMap<String, u64>, // Changed to use operation keys
+    pub operation_states: BTreeMap<String, OperationState>, // Changed to use operation keys
+    pub operation_details: BTreeMap<String, (Principal, String)>, // Store principal and operation name for each key
     pub is_timer_running: bool,
     pub is_fetching_rate: bool,
     pub treasury_principal: Option<Principal>, // Add treasury principal
+    pub stability_pool_canister: Option<Principal>, // Add stability pool canister
 }
 
 impl From<InitArg> for State {
@@ -174,16 +176,17 @@ impl From<InitArg> for State {
             last_icp_timestamp: None,
             last_icp_rate: None,
             next_available_vault_id: 1,
-            principal_guards: BTreeSet::new(),
-            principal_guard_timestamps: BTreeMap::new(), // Initialize empty timestamps map
+            operation_guards: BTreeSet::new(),
+            operation_guard_timestamps: BTreeMap::new(), // Initialize empty timestamps map
             operation_states: BTreeMap::new(),
-            operation_names: BTreeMap::new(),
+            operation_details: BTreeMap::new(),
             liquidity_pool: BTreeMap::new(),
             liquidity_returns: BTreeMap::new(),
             pending_margin_transfers: BTreeMap::new(),
             is_timer_running: false,
             is_fetching_rate: false,
-            treasury_principal: None, // Initialize treasury principal
+            treasury_principal: args.treasury_principal, // Initialize treasury principal from args
+            stability_pool_canister: args.stability_pool_principal, // Initialize stability pool canister from args
         }
     }
 }
@@ -615,8 +618,8 @@ impl State {
         Ok(())
     }
 
-    pub fn mark_operation_failed(&mut self, principal: &Principal) {
-        if let Some(state) = self.operation_states.get_mut(principal) {
+    pub fn mark_operation_failed(&mut self, operation_key: &str) {
+        if let Some(state) = self.operation_states.get_mut(operation_key) {
             *state = OperationState::Failed;
         }
     }
@@ -688,6 +691,15 @@ impl State {
     
     pub fn get_treasury_principal(&self) -> Option<Principal> {
         self.treasury_principal
+    }
+    
+    // Add stability pool management methods
+    pub fn set_stability_pool_canister(&mut self, stability_pool_principal: Principal) {
+        self.stability_pool_canister = Some(stability_pool_principal);
+    }
+    
+    pub fn get_stability_pool_canister(&self) -> Option<Principal> {
+        self.stability_pool_canister
     }
 }
 

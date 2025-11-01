@@ -37,7 +37,7 @@ import { RequestDeduplicator } from '../RequestDeduplicator';
 // Constants from backend
 export const E8S = 100_000_000;
 export const MIN_ICP_AMOUNT = 100_000; // 0.001 ICP
-export const MIN_ICUSD_AMOUNT = 100_000_000; // 1 icUSD (reduced from 5)
+export const MIN_ICUSD_AMOUNT = 10_000_000; // 0.10 icUSD (10 cents)
 export const MINIMUM_COLLATERAL_RATIO = 1.33; // 133%
 export const RECOVERY_COLLATERAL_RATIO = 1.5; // 150%
 
@@ -530,10 +530,18 @@ static async borrowFromVault(vaultId: number, icusdAmount: number): Promise<Vaul
     try {
       console.log(`Borrowing ${icusdAmount} icUSD from vault #${vaultId}`);
       
-      if (icusdAmount * E8S < MIN_ICUSD_AMOUNT / 10) { // Lower limit for borrowing
+      // Validate input is finite before any calculations
+      if (!isFinite(icusdAmount) || icusdAmount <= 0) {
         return {
           success: false,
-          error: `Amount too low. Minimum borrowing amount: ${MIN_ICUSD_AMOUNT / E8S / 10} icUSD`
+          error: `Invalid borrowing amount: ${icusdAmount}. Amount must be a finite positive number.`
+        };
+      }
+      
+      if (icusdAmount * E8S < MIN_ICUSD_AMOUNT) { // Updated minimum validation
+        return {
+          success: false,
+          error: `Amount too low. Minimum borrowing amount: ${MIN_ICUSD_AMOUNT / E8S} icUSD`
         };
       }
       
@@ -726,53 +734,56 @@ static async addMarginToVault(vaultId: number, icpAmount: number): Promise<Vault
  * Repay icUSD to a vault
  */
 static async repayToVault(vaultId: number, icusdAmount: number): Promise<VaultOperationResult> {
-  try {
-    console.log(`💰 Repaying ${icusdAmount} icUSD to vault ${vaultId}`);
-    
-    // REMOVED: No longer need to explicitly request permissions
-    // Permissions are automatically handled during wallet connection
-
-    const spenderCanisterId = CONFIG.isLocal ? LOCAL_CANISTER_IDS.PROTOCOL : CANISTER_IDS.PROTOCOL;
-    const amountE8s = BigInt(Math.floor(icusdAmount * E8S));
-    
-    // Check current allowance
-    const currentAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
-    
-    if (currentAllowance < amountE8s) {
-      console.log('Requesting icUSD approval...');
+  return ApiClient.executeSequentialOperation(async () => {
+    try {
+      console.log(`Repaying ${icusdAmount} icUSD to vault #${vaultId}`);
       
-      const approvalResult = await protocolService.approveIcusdTransfer(
-        amountE8s,
-        spenderCanisterId
-      );
-      
-      if (!approvalResult.success) {
+      // Validate input is finite before any calculations
+      if (!isFinite(icusdAmount) || icusdAmount <= 0) {
         return {
           success: false,
-          error: approvalResult.error || 'Failed to approve icUSD transfer'
+          error: `Invalid repayment amount: ${icusdAmount}. Amount must be a finite positive number.`
         };
       }
+      
+      if (icusdAmount * E8S < MIN_ICUSD_AMOUNT) {
+        return {
+          success: false,
+          error: `Amount too low. Minimum repayment amount: ${MIN_ICUSD_AMOUNT / E8S} icUSD`
+        };
+      }
+      
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      
+      const actor = await ApiClient.getAuthenticatedActor();
+      const vaultArg = {
+        vault_id: BigInt(vaultId),
+        amount: BigInt(Math.floor(icusdAmount * E8S))
+      };
+      
+      const result = await actor.repay_to_vault(vaultArg);
+      
+      if ('Ok' in result) {
+        return {
+          success: true,
+          vaultId,
+          blockIndex: Number(result.Ok)
+        };
+      } else {
+        return {
+          success: false,
+          error: ApiClient.formatProtocolError(result.Err)
+        };
+      }
+    } catch (err) {
+      console.error('Error repaying to vault:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error repaying to vault'
+      };
     }
-
-    // Execute the repayment
-    const result = await protocolService.repayToVault(vaultId, Number(amountE8s));
-    
-    if (result.success) {
-      console.log('✅ Repayment successful');
-      // Refresh data
-      await Promise.all([
-        ApiClient.refreshVaultData()
-      ]);
-    }
-    
-    return result;
-  } catch (error) {
-    console.error('Repayment failed:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during repayment'
-    };
-  }
+  }, vaultId);
 }
 
   /**
@@ -900,10 +911,11 @@ static async repayToVault(vaultId: number, icusdAmount: number): Promise<VaultOp
         ApiClient.vaultCache.loading = true;
         
         const actor = await ApiClient.getAuthenticatedActor();
-        const principal = Principal.fromText(principalStr);
+        // Use a plain object with toString() to avoid Principal type mismatches between different @dfinity/principal instances
+        const principalParam = { _type: 'Principal', toString: () => principalStr } as any;
         
         console.log(`Fetching vaults for principal: ${principalStr}`);
-        const canisterVaults = await actor.get_vaults([principal]);
+        const canisterVaults = await actor.get_vaults([principalParam]);
         console.log('Raw canister vaults data:', canisterVaults);
         
         // Get protocol status for ICP price calculation
@@ -1745,7 +1757,7 @@ export class TreasuryService {
   }> {
     try {
       // Create anonymous actor for treasury queries
-      const treasuryActor = Actor.createActor(treasuryIDL, {
+      const treasuryActor = Actor.createActor(treasuryIDL as any, {
         agent: new HttpAgent({ host: CONFIG.host }),
         canisterId: this.TREASURY_CANISTER_ID
       }) as any; // Type as 'any' to handle the treasury service interface
@@ -1788,7 +1800,7 @@ export class TreasuryService {
     memo: string | null;
   }>> {
     try {
-      const treasuryActor = Actor.createActor(treasuryIDL, {
+      const treasuryActor = Actor.createActor(treasuryIDL as any, {
         agent: new HttpAgent({ host: CONFIG.host }),
         canisterId: this.TREASURY_CANISTER_ID
       }) as any;
@@ -1910,7 +1922,7 @@ export class TreasuryService {
   // Get treasury withdrawal history
   static async getWithdrawalHistory(limit: number = 50): Promise<any[]> {
     try {
-      const treasuryActor = Actor.createActor(treasuryIDL, {
+      const treasuryActor = Actor.createActor(treasuryIDL as any, {
         agent: new HttpAgent({ host: CONFIG.host }),
         canisterId: this.TREASURY_CANISTER_ID
       }) as any;

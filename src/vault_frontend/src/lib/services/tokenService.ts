@@ -90,8 +90,9 @@ export class TokenService {
       });
       
       // Query balance with proper formatting for ICRC1 interface
+      // Cast to any to avoid duplicate @dfinity/principal type conflicts between workspaces
       const balance = await actor.icrc1_balance_of({
-        owner: principal,
+        owner: (principal as unknown) as any,
         subaccount: []
       });
       

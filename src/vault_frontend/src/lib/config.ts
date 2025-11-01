@@ -14,6 +14,7 @@ export const LOCAL_CANISTER_IDS = {
   PROTOCOL: "aakb7-rqaaa-aaaai-q3oua-cai",
   ICP_LEDGER: "ryjl3-tyaaa-aaaaa-aaaba-cai",
   ICUSD_LEDGER: "4kejc-maaaa-aaaai-q3tqq-cai",
+  INTERNET_IDENTITY: "rdmx6-jaaaa-aaaaa-aaadq-cai", // Local II canister
 } as const;
 
 // Frontend canister ID

@@ -18,7 +18,7 @@ import { walletOperations } from './protocol/walletOperations';
 // Constants from backend
 const E8S = 100_000_000;
 const MIN_ICP_AMOUNT = 100_000; // 0.001 ICP
-const MIN_ICUSD_AMOUNT = 1_000_000_000; // 10 icUSD
+const MIN_ICUSD_AMOUNT = 10_000_000; // 0.10 icUSD (10 cents)
 const MINIMUM_COLLATERAL_RATIO = 1.33; // 133%
 const RECOVERY_COLLATERAL_RATIO = 1.5; // 150%
 

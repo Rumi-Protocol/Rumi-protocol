@@ -11,8 +11,6 @@
       ]
     },
     "rumi_protocol_frontend": {
-      "dependencies": [
-      ],
       "source": [
         "src/rumi_protocol_frontend/dist"
       ],
@@ -20,9 +18,6 @@
       "workspace": "rumi_protocol_frontend"
     },
     "vault_frontend": {
-      "dependencies": [
-        "rumi_protocol_backend"
-      ],
       "source": [
         "src/vault_frontend/dist"
       ],
@@ -35,23 +30,88 @@
         "wasm": "src/ledger/ic-icrc1-ledger.wasm",
         "shrink": false
     },
-    "icp_ledger": {
-        "candid": "src/ledger/ledger.did",
-        "type": "custom",
-        "wasm": "src/ledger/ic-icrc1-ledger.wasm",
-        "shrink": false
+    "icp_ledger_canister": {
+      "candid": "src/ledger/ledger.did",
+      "type": "custom",
+      "wasm": "src/ledger/ic-icrc1-ledger.wasm",
+      "remote": {
+        "id": {
+          "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
+        }
+      }
+    },
+    "test_vault_frontend": {
+      "source": [
+        "src/test_vault_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "vault_frontend"
+    },
+    "test_icp_ledger_canister": {
+      "candid": "src/ledger/ledger.did",
+      "type": "custom",
+      "wasm": "src/ledger/ic-icrc1-ledger.wasm",
+      "shrink": false
+    },
+    "test_rumi_protocol_backend": {
+      "candid": "src/rumi_protocol_backend/rumi_protocol_backend.did",
+      "package": "rumi_protocol_backend",
+      "type": "rust",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
+    "test_icusd_ledger": {
+      "candid": "src/ledger/ledger.did",
+      "type": "custom",
+      "wasm": "src/ledger/ic-icrc1-ledger.wasm",
+      "shrink": false
+    },
+    "rumi_treasury": {
+      "candid": "src/rumi_treasury/rumi_treasury.did",
+      "package": "rumi_treasury",
+      "type": "rust",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
+    },
+    "rumi_stability_pool": {
+      "candid": "src/rumi_stability_pool/rumi_stability_pool.did",
+      "package": "rumi_stability_pool",
+      "type": "rust",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     }
   },
   "defaults": {
     "build": {
       "args": "",
       "packtool": ""
+    },
+    "replica": {
+      "subnet_type": "system"
+    }
+  },
+  "cargo": {
+    "audit": {
+      "enabled": false
     }
   },
   "networks": {
     "local": {
       "bind": "localhost:4943", 
-      "type": "ephemeral"
+      "type": "ephemeral",
+      "canister_http": {
+        "enabled": true,
+        "allow_raw_access": true
+      }
     },
     "ic": {
       "providers": ["https://ic0.app"],

@@ -88,14 +88,16 @@ export class ProtocolManager {
     executor: () => Promise<T>,
     preChecks?: () => Promise<void>
   ): Promise<T> {
+    console.log(`🚀 Starting operation: ${operation}`);
+    
     // Check if operation is already in progress
     if (this.operationQueue.has(operation)) {
       // Check if the operation is stale (running for too long)
       const startTime = this.operationStartTimes.get(operation) || 0;
       const operationAge = Date.now() - startTime;
       
-      // If operation has been running for more than 2 minutes, consider it stale
-      if (operationAge > 120000) { // 2 minutes
+      // If operation has been running for more than 30 seconds, consider it stale
+      if (operationAge > 30000) { // 30 seconds (reduced from 2 minutes)
         console.warn(`Found stale operation "${operation}" running for ${operationAge}ms, force aborting`);
         
         // Abort the previous operation
@@ -104,6 +106,9 @@ export class ProtocolManager {
         // Clean up resources for the stale operation
         this.operationQueue.delete(operation);
         this.operationStartTimes.delete(operation);
+        this.abortControllers.delete(operation);
+        
+        console.log(`✅ Cleaned up stale operation: ${operation}`);
       } else {
         // Operation is still recent, don't allow a duplicate
         console.warn(`Operation "${operation}" already in progress (for ${operationAge}ms), rejecting duplicate request`);
@@ -234,12 +239,82 @@ export class ProtocolManager {
       throw error;
     } finally {
       // Clean up resources
+      console.log(`🧹 Cleaning up operation: ${operation}`);
       this.operationQueue.delete(operation);
       this.abortControllers.delete(operation);
       this.operationStartTimes.delete(operation);
       
       if (this.processingOperation === operation) {
         this.processingOperation = null;
+      }
+      
+      console.log(`✅ Operation cleanup complete: ${operation}`);
+    }
+  }
+
+  /**
+   * Clear all pending operations (useful for debugging)
+   */
+  clearAllOperations(): void {
+    console.log('🧹 Clearing all pending operations...');
+    
+    // Abort all active operations
+    for (const [operation, controller] of this.abortControllers) {
+      if (!controller.signal.aborted) {
+        console.log(`Aborting operation: ${operation}`);
+        controller.abort();
+      }
+    }
+    
+    // Clear all tracking maps
+    this.operationQueue.clear();
+    this.abortControllers.clear();
+    this.operationStartTimes.clear();
+    this.processingOperation = null;
+    
+    console.log('✅ All operations cleared');
+  }
+
+  /**
+   * Get current operation status for debugging
+   */
+  getOperationStatus(): { [key: string]: { age: number, processing: boolean } } {
+    const status: { [key: string]: { age: number, processing: boolean } } = {};
+    const now = Date.now();
+    
+    for (const [operation, startTime] of this.operationStartTimes) {
+      status[operation] = {
+        age: now - startTime,
+        processing: this.processingOperation === operation
+      };
+    }
+    
+    return status;
+  }
+
+  /**
+   * Clean up stale operations (called periodically)
+   */
+  cleanStaleOperations(): void {
+    const now = Date.now();
+    const staleOperations: string[] = [];
+    
+    for (const [operation, startTime] of this.operationStartTimes) {
+      const age = now - startTime;
+      // Clean operations older than 5 minutes
+      if (age > 300000) {
+        staleOperations.push(operation);
+      }
+    }
+    
+    if (staleOperations.length > 0) {
+      console.log(`🧹 Cleaning ${staleOperations.length} stale operations:`, staleOperations);
+      
+      for (const operation of staleOperations) {
+        this.abortPreviousOperation(operation);
+        this.operationQueue.delete(operation);
+        this.operationStartTimes.delete(operation);
+        this.abortControllers.delete(operation);
       }
     }
   }
@@ -293,31 +368,7 @@ export class ProtocolManager {
     }
   }
 
-  // Clean stale operations - call this periodically
-  public cleanStaleOperations(): void {
-    const now = Date.now();
-    
-    for (const [operation, startTime] of this.operationStartTimes.entries()) {
-      const operationAge = now - startTime;
-      
-      // If operation has been running for more than 5 minutes, abort it
-      if (operationAge > 300000) { // 5 minutes
-        console.warn(`Cleaning up stale operation "${operation}" running for ${operationAge}ms`);
-        
-        // Abort the operation
-        this.abortPreviousOperation(operation);
-        
-        // Clean up resources
-        this.operationQueue.delete(operation);
-        this.abortControllers.delete(operation);
-        this.operationStartTimes.delete(operation);
-        
-        if (this.processingOperation === operation) {
-          this.processingOperation = null;
-        }
-      }
-    }
-  }
+
 
   // VAULT OPERATIONS WITH ENHANCED PRE-CHECKS AND ERROR HANDLING
   // These operations use executeOperation to provide consistent processing
@@ -331,7 +382,11 @@ export class ProtocolManager {
       () => ApiClient.openVault(collateralAmount),
       async () => {
         try {
-          // Pre-checks
+          // Pre-checks with validation
+          if (!isFinite(collateralAmount) || collateralAmount <= 0) {
+            throw new Error(`Invalid collateral amount: ${collateralAmount}. Amount must be a finite positive number.`);
+          }
+          
           await walletOperations.checkSufficientBalance(collateralAmount);
           
           // Add additional wallet check before proceeding
@@ -399,7 +454,7 @@ export class ProtocolManager {
       `repayToVault:${vaultId}`,
       () => ApiClient.repayToVault(vaultId, icusdAmount),
       async () => {
-        // Pre-checks
+        // Pre-checks - validation is now handled in ApiClient
         await walletOperations.checkSufficientBalance(icusdAmount);
         
         // Ensure proper icUSD allowance for the repayment
@@ -409,17 +464,39 @@ export class ProtocolManager {
         try {
           // Check current allowance
           const currentAllowance = await walletOperations.checkIcusdAllowance(spenderCanisterId);
+          console.log(`💰 Repay pre-check: Current icUSD allowance: ${Number(currentAllowance) / 100_000_000}`);
+          console.log(`💰 Repay pre-check: Required icUSD amount: ${icusdAmount}`);
           
-          if (currentAllowance < amountE8s) {
+          // Add a small buffer (5%) to handle potential fees and ensure sufficient allowance
+          const requiredAllowance = amountE8s + (amountE8s * BigInt(5) / BigInt(100));
+          
+          if (currentAllowance < requiredAllowance) {
             processingStore.setStage(ProcessingStage.APPROVING);
-            console.log("Setting approval stage - insufficient icUSD allowance detected");
+            console.log(`🔐 Setting icUSD approval - insufficient allowance (have: ${Number(currentAllowance) / 100_000_000}, need: ${Number(requiredAllowance) / 100_000_000})`);
             
-            // Approve the icUSD transfer
-            await walletOperations.approveIcusdTransfer(amountE8s, spenderCanisterId);
+            // Approve with the buffered amount
+            const approvalResult = await walletOperations.approveIcusdTransfer(requiredAllowance, spenderCanisterId);
+            
+            if (!approvalResult.success) {
+              throw new Error(approvalResult.error || 'Failed to approve icUSD transfer');
+            }
+            
+            // Wait for approval to settle
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Verify the approval took effect
+            const newAllowance = await walletOperations.checkIcusdAllowance(spenderCanisterId);
+            console.log(`✅ Post-approval allowance: ${Number(newAllowance) / 100_000_000} icUSD`);
+            
+            if (newAllowance < amountE8s) {
+              throw new Error(`Approval verification failed - allowance still insufficient: ${Number(newAllowance) / 100_000_000} < ${icusdAmount}`);
+            }
+          } else {
+            console.log(`✅ Sufficient icUSD allowance already exists: ${Number(currentAllowance) / 100_000_000}`);
           }
         } catch (err) {
-          console.error('icUSD allowance check/approval failed:', err);
-          throw new Error('Failed to ensure icUSD allowance for repayment');
+          console.error('❌ icUSD allowance check/approval failed:', err);
+          throw new Error(`Failed to ensure icUSD allowance for repayment: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
       }
     );
@@ -649,6 +726,11 @@ export class ProtocolManager {
     try {
       console.log(`💰 Starting ICP deposit of ${amount} ICP`);
       
+      // Validate amount
+      if (!isFinite(amount) || amount <= 0) {
+        return this.createError(`Invalid deposit amount: ${amount}. Amount must be a finite positive number.`);
+      }
+      
       // REMOVED: No longer need to explicitly request permissions
       // Permissions are automatically handled during wallet connection
 
@@ -682,4 +764,11 @@ if (typeof window !== 'undefined') {
   setInterval(() => {
     protocolManager.cleanStaleOperations();
   }, 120000); // 2 minutes
+
+  // Expose debug helpers to window for development
+  (window as any).debugProtocol = {
+    getOperationStatus: () => protocolManager.getOperationStatus(),
+    clearAllOperations: () => protocolManager.clearAllOperations(),
+    cleanStaleOperations: () => protocolManager.cleanStaleOperations()
+  };
 }

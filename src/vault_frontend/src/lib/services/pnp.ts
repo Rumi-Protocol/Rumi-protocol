@@ -3,19 +3,22 @@ import { CONFIG, CANISTER_IDS, LOCAL_CANISTER_IDS, vault_frontend } from '../con
 import { idlFactory as rumi_backendIDL } from '../../../../declarations/rumi_protocol_backend/rumi_protocol_backend.did.js';
 import { idlFactory as icp_ledgerIDL } from '../../../../declarations/icp_ledger/icp_ledger.did.js';
 import { idlFactory as icusd_ledgerIDL } from '../../../../declarations/icusd_ledger/icusd_ledger.did.js';
+import { idlFactory as stabilityPoolIDL } from '../../../../declarations/rumi_stability_pool/rumi_stability_pool.did.js';
 import { createPNP, type PNP } from '@windoge98/plug-n-play';
 
 // Define types for supported canisters
 export type CanisterType =
   | "rumi_backend"
   | "icp_ledger"
-  | "icusd_ledger";
+  | "icusd_ledger"
+  | "stability_pool";
 
 // Collect all canister IDLs in one place
 export const canisterIDLs = {
   rumi_backend: rumi_backendIDL,
   icp_ledger: icp_ledgerIDL,
   icusd_ledger: icusd_ledgerIDL,
+  stability_pool: stabilityPoolIDL,
 };
 
 let globalPnp: PNP | null = null;
@@ -23,7 +26,8 @@ let globalPnp: PNP | null = null;
 export const REQUIRED_CANISTERS = {
   protocol: CONFIG.currentCanisterId,
   icpLedger: CONFIG.currentIcpLedgerId,
-  icusdLedger: CONFIG.currentIcusdLedgerId
+  icusdLedger: CONFIG.currentIcusdLedgerId,
+  stabilityPool: "jgwkf-3yaaa-aaaai-q34na-cai"
 };
 
 // COMPREHENSIVE PERMISSION SYSTEM - Request ALL permissions at once during wallet connection
@@ -41,7 +45,8 @@ export async function connectWithComprehensivePermissions(walletId: string): Pro
         whitelist: [
           CONFIG.currentCanisterId,      // Protocol canister
           CONFIG.currentIcpLedgerId,     // ICP Ledger  
-          CONFIG.currentIcusdLedgerId    // icUSD Ledger
+          CONFIG.currentIcusdLedgerId,   // icUSD Ledger
+          "jgwkf-3yaaa-aaaai-q34na-cai"  // Stability Pool canister
         ],
         host: CONFIG.isLocal ? 'http://localhost:4943' : 'https://icp0.io',
         timeout: 60000

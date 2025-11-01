@@ -4,6 +4,8 @@ type InitArg = record {
   xrc_principal : principal;
   icusd_ledger_principal : principal;
   developer_principal : principal;
+  treasury_principal : opt principal;
+  stability_pool_principal : opt principal;
 };
 type Event = variant {
   claim_liquidity_returns : record {

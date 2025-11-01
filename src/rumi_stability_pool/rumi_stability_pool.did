@@ -1,0 +1,97 @@
+type Principal = principal;
+
+type CollateralType = variant {
+  ICP;
+  CkBTC;
+};
+
+type CollateralReward = record {
+  collateral_type: CollateralType;
+  amount: nat64;
+  liquidation_id: nat64;
+};
+
+type UserDeposit = record {
+  user: Principal;
+  icusd_amount: nat64;
+  deposit_time: nat64;
+  pending_collateral: vec CollateralReward;
+};
+
+type LiquidationRecord = record {
+  liquidation_id: nat64;
+  vault_id: nat64;
+  liquidated_debt: nat64;
+  collateral_received: nat64;
+  collateral_type: CollateralType;
+  liquidation_time: nat64;
+  pool_size_at_liquidation: nat64;
+};
+
+type PoolInfo = record {
+  total_icusd_deposited: nat64;
+  total_depositors: nat64;
+  pool_utilization: float64;
+};
+
+type PoolState = record {
+  protocol_owner: Principal;
+  liquidation_discount: nat8;
+  max_ltv_ratio: nat8;
+  next_liquidation_id: nat64;
+  paused: bool;
+};
+
+type InitArgs = record {
+  protocol_owner: Principal;
+  liquidation_discount: nat8;
+  max_ltv_ratio: nat8;
+};
+
+type DepositResult = record {
+  success: bool;
+  new_balance: nat64;
+  message: text;
+};
+
+type WithdrawResult = record {
+  success: bool;
+  remaining_balance: nat64;
+  message: text;
+};
+
+type ClaimResult = record {
+  success: bool;
+  claimed_collateral: vec CollateralReward;
+  message: text;
+};
+
+type ManualLiquidationResult = record {
+  success: bool;
+  liquidations_executed: nat64;
+  message: text;
+};
+
+service : (InitArgs) -> {
+  // User functions
+  deposit: (nat64) -> (DepositResult);
+  withdraw: (nat64) -> (WithdrawResult);
+  claim_collateral_rewards: (vec nat64) -> (ClaimResult);
+  
+  // Query functions
+  get_user_deposit: () -> (opt UserDeposit) query;
+  get_total_pool_info: () -> (PoolInfo) query;
+  get_liquidation_history: (opt nat64) -> (vec LiquidationRecord) query;
+  get_pool_state: () -> (PoolState) query;
+  
+  // Admin functions
+  execute_liquidation: (nat64, nat64, nat64, CollateralType) -> (bool);
+  pause_protocol: () -> (bool);
+  unpause_protocol: () -> (bool);
+  update_liquidation_discount: (nat8) -> (bool);
+  
+  // Monitoring functions
+  start_monitoring: () -> (bool);
+  manual_liquidation_check: () -> (ManualLiquidationResult);
+  set_protocol_backend: (principal) -> (bool);
+}

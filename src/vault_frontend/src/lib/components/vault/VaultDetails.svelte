@@ -7,6 +7,7 @@
   import { createEventDispatcher } from 'svelte';
   import { vaultStore } from '$lib/stores/vaultStore';
   import { walletOperations } from '$lib/services/protocol/walletOperations';
+  import { protocolManager } from '$lib/services/ProtocolManager';
   import { CONFIG } from '$lib/config';
   
   // Change this to accept vaultId instead of the full vault object
@@ -183,12 +184,12 @@
   // Update handleRepay to use currentVault
   async function handleRepay() {
     if (!currentVault) return;
-    if (repayAmount <= 0) {
+    if (repayAmount <= 0 || !isFinite(repayAmount)) {
       errorMessage = "Please enter a valid amount";
       return;
     }
     
-    if (repayAmount > currentVault.borrowedIcusd) {
+    if (!isFinite(currentVault.borrowedIcusd) || repayAmount > currentVault.borrowedIcusd) {
       errorMessage = `You can only repay up to ${currentVault.borrowedIcusd} icUSD`;
       return;
     }
@@ -199,39 +200,21 @@
       errorMessage = '';
       successMessage = '';
       
-      // Check approval first
-      const amountE8s = BigInt(Math.floor(repayAmount * E8S));
-      const spenderCanisterId = CONFIG.currentCanisterId;
-      currentAllowance = Number(await protocolService.checkIcusdAllowance(spenderCanisterId));
+      // SIMPLIFIED: Let the ProtocolManager handle approval logic completely
+      // This eliminates duplicate approval requests and race conditions
+      console.log(`🔄 Starting repayment of ${repayAmount} icUSD to vault ${currentVault.vaultId}`);
       
-      // If approval is needed
-      if (currentAllowance < Number(amountE8s)) {
-        isApproving = true;
-        
-        // Request approval
-        const approvalResult = await protocolService.approveIcusdTransfer(
-          amountE8s, 
-          spenderCanisterId
-        );
-        
-        if (!approvalResult.success) {
-          errorMessage = approvalResult.error || "Failed to approve icUSD transfer";
-          isRepaying = false;
-          isApproving = false;
-          return;
-        }
-        
-        isApproving = false;
-      }
-      
-      // Call protocol service to repay
-      const result = await protocolService.repayToVault(currentVault.vaultId, repayAmount);
+      // Call protocol manager directly - it will handle all approval logic internally
+      const result = await protocolManager.repayToVault(currentVault.vaultId, repayAmount);
       
       if (result.success) {
         successMessage = `Successfully repaid ${repayAmount} icUSD`;
         
         // Reset input
         repayAmount = 0;
+        
+        // Wait a moment for transaction to settle
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Explicitly refresh this vault to ensure UI is updated
         await vaultStore.refreshVault(currentVault.vaultId);
@@ -332,8 +315,10 @@
   
   // Helper to automatically repay max amount
   function setMaxRepay() {
-    if (currentVault) {
+    if (currentVault && isFinite(currentVault.borrowedIcusd) && currentVault.borrowedIcusd > 0) {
       repayAmount = currentVault.borrowedIcusd;
+    } else {
+      errorMessage = "Cannot set repay amount - invalid debt value";
     }
   }
 </script>

@@ -1,0 +1,22 @@
+[package]
+name = "rumi_stability_pool"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = "0.10.6"
+ic-cdk = "0.12.0"
+ic-cdk-macros = "0.8.3"
+ic-cdk-timers = "0.10.0"
+ic-stable-structures = "0.6.5"
+serde = "1.0.210"
+icrc-ledger-client-cdk = { git = "https://github.com/Rumi-Protocol/ic", rev = "fc278709" }
+rust_decimal = "1.32.0"
+rust_decimal_macros = "1.32"
+
+[features]
+default = []

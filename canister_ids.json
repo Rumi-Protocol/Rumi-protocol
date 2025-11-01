@@ -11,6 +11,12 @@
   "rumi_protocol_frontend": {
     "ic": "ahlhl-4iaaa-aaaai-q3ouq-cai"
   },
+  "rumi_stability_pool": {
+    "ic": "jgwkf-3yaaa-aaaai-q34na-cai"
+  },
+  "rumi_treasury": {
+    "ic": "mgjkr-hqaaa-aaaai-q34qq-cai"
+  },
   "rumi_vault": {
     "ic": "vskjr-6yaaa-aaaai-q3sca-cai"
   },

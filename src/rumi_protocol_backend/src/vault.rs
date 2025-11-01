@@ -1101,9 +1101,9 @@ async fn route_minting_fee_to_treasury(
     let treasury_principal = read_state(|s| s.treasury_principal);
     
     if let Some(treasury_principal) = treasury_principal {
-        let deposit_args = crate::state::TreasuryDepositArgs {
-            deposit_type: crate::state::TreasuryFeeType::MintingFee,
-            asset_type: crate::state::TreasuryAssetType::ICUSD,
+        let deposit_args = crate::state::DepositArgs {
+            deposit_type: crate::state::DepositType::MintingFee,
+            asset_type: crate::state::AssetType::ICUSD,
             amount: fee_amount,
             block_index,
             memo: Some(format!("Minting fee from vault {}", vault_id)),
@@ -1154,9 +1154,9 @@ async fn route_redemption_fee_to_treasury(
     let treasury_principal = read_state(|s| s.treasury_principal);
     
     if let Some(treasury_principal) = treasury_principal {
-        let deposit_args = crate::state::TreasuryDepositArgs {
-            deposit_type: crate::state::TreasuryFeeType::RedemptionFee,
-            asset_type: crate::state::TreasuryAssetType::ICUSD,
+        let deposit_args = crate::state::DepositArgs {
+            deposit_type: crate::state::DepositType::RedemptionFee,
+            asset_type: crate::state::AssetType::ICUSD,
             amount: fee_amount,
             block_index,
             memo: Some("Redemption fee".to_string()),

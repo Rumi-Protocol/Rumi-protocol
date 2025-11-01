@@ -6,7 +6,7 @@ import { CONFIG, CANISTER_IDS, LOCAL_CANISTER_IDS } from '../config';
 import { pnp, canisterIDLs } from '../services/pnp';
 import { ProtocolService } from '../services/protocol';
 import { TokenService } from '../services/tokenService';
-import { auth } from '../services/auth';
+import { auth, WALLET_TYPES } from '../services/auth';
 import { RequestDeduplicator } from '../services/RequestDeduplicator';
 import { appDataStore } from './appDataStore';
 
@@ -347,7 +347,9 @@ function createWalletStore() {
             }
           },
           loading: false,
-          icon: walletsList.find(w => w.id === walletId)?.icon ?? ''
+          icon: walletId === WALLET_TYPES.INTERNET_IDENTITY 
+            ? 'https://internetcomputer.org/img/IC_logo_horizontal.svg'
+            : walletsList.find(w => w.id === walletId)?.icon ?? ''
         }));
 
         startBalanceRefresh();
@@ -370,7 +372,9 @@ function createWalletStore() {
 
     async disconnect() {
       try {
-        await pnp.disconnect();
+        // Use auth service for proper disconnect handling (Internet Identity + Plug)
+        await auth.disconnect();
+        
         authenticatedActor = null;
         
         stopBalanceRefresh();

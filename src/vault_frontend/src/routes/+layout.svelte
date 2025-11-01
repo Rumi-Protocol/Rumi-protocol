@@ -135,6 +135,14 @@
         <span class="nav-text">Liquidations</span>
       </a>
 
+      <a href="/stability-pool" class="nav-item" class:active={currentPath === '/stability-pool'}>
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+        </svg>
+        <span class="nav-text">Stability Pool</span>
+      </a>
+
       {#if isConnected && $permissionStore.isDeveloper}
         <a href="/treasury" class="nav-item" class:active={currentPath === '/treasury'}>
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -168,7 +176,7 @@
 <header class="mobile-header">
   <a href="/" class="mobile-brand">
     <img src="/rumi-header-logo.png" alt="Rumi Labs Logo" class="w-8 h-8" />
-    <span class="text-lg font-bold text-pink-300">RUMI</span>
+    <span class="text-lg font-bold text-pink-300">RUMI PROTOCOL</span>
   </a>
   <WalletConnector />
 </header>

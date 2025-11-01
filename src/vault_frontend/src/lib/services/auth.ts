@@ -5,7 +5,9 @@ import { TokenService } from './tokenService';
 import { CONFIG, CANISTER_IDS, LOCAL_CANISTER_IDS } from '../config';
 import { canisterIDLs } from './pnp';
 import { permissionManager } from './PermissionManager';
-import type { Principal } from '@dfinity/principal';
+import { Principal } from '@dfinity/principal';
+import { AuthClient } from '@dfinity/auth-client';
+import { HttpAgent } from '@dfinity/agent';
 
 // Storage keys for persistence
 const STORAGE_KEYS = {
@@ -14,9 +16,18 @@ const STORAGE_KEYS = {
   WAS_CONNECTED: "rumi_was_connected"
 } as const;
 
+// Wallet types
+export const WALLET_TYPES = {
+  PLUG: 'plug',
+  INTERNET_IDENTITY: 'internet-identity'
+} as const;
+
+export type WalletType = typeof WALLET_TYPES[keyof typeof WALLET_TYPES];
+
 // Create initial stores
 export const selectedWalletId = writable<string | null>(null);
 export const connectionError = writable<string | null>(null);
+export const currentWalletType = writable<WalletType | null>(null);
 
 // Type definition for auth state
 interface AuthState {
@@ -27,16 +38,22 @@ interface AuthState {
     [key: string]: any;
   } | null;
   isInitialized: boolean;
+  walletType: WalletType | null;
 }
 
 function createAuthStore() {
   const store = writable<AuthState>({
     isConnected: false,
     account: null,
-    isInitialized: false
+    isInitialized: false,
+    walletType: null
   });
 
   const { subscribe, set } = store;
+
+  // Internet Identity auth client
+  let authClient: AuthClient | null = null;
+  let agent: HttpAgent | null = null;
 
   // Storage helper with type safety
   const storage = {
@@ -71,8 +88,23 @@ function createAuthStore() {
     pnp,
     refreshBalance: refreshWalletBalance,
 
+    // Initialize Internet Identity auth client
+    async initAuthClient(): Promise<AuthClient> {
+      if (!authClient) {
+        authClient = await AuthClient.create({
+          idleOptions: {
+            disableIdle: true
+          }
+        });
+      }
+      return authClient;
+    },
+
     async initialize(): Promise<void> {
       if (!browser) return;
+      
+      // Initialize Internet Identity client
+      await this.initAuthClient();
       
       const lastWallet = storage.get("LAST_WALLET");
       if (!lastWallet) return;
@@ -97,52 +129,144 @@ function createAuthStore() {
       try {
         connectionError.set(null);
         
-        // Use custom connect function that ensures comprehensive permissions
-        console.log('🔗 Connecting wallet with comprehensive permissions...');
-        
-        const result = await connectWithComprehensivePermissions(walletId);
-        
-        if (!result?.owner) {
-          throw new Error("Invalid connection result");
+        if (walletId === WALLET_TYPES.INTERNET_IDENTITY) {
+          return await this.connectInternetIdentity();
+        } else {
+          return await this.connectPlug(walletId);
         }
-
-        // Get initial balance after connection
-        const balance = await refreshWalletBalance(result.owner);
-        console.log('Initial balance:', balance.toString());
-
-        set({ 
-          isConnected: true, 
-          account: {
-            ...result,
-            balance
-          }, 
-          isInitialized: true 
-        });
-
-        // Update storage
-        selectedWalletId.set(walletId);
-        storage.set("LAST_WALLET", walletId);
-        storage.set("WAS_CONNECTED", "true");
-
-        console.log('🎉 Wallet connected with comprehensive permissions via PNP initialization');
-        return result;
       } catch (error) {
         this.handleConnectionError(error);
         throw error;
       }
     },
 
-    async disconnect(): Promise<void> {
-      // Clear permission cache on disconnect
-      permissionManager.clearCache();
+    async connectPlug(walletId: string): Promise<{owner: Principal} | null> {
+      // Use custom connect function that ensures comprehensive permissions
+      console.log('🔗 Connecting Plug wallet with comprehensive permissions...');
       
-      await pnp.disconnect();
+      const result = await connectWithComprehensivePermissions(walletId);
+      
+      if (!result?.owner) {
+        throw new Error("Invalid connection result");
+      }
+
+      // Get initial balance after connection
+      const balance = await refreshWalletBalance(result.owner);
+      console.log('Initial balance:', balance.toString());
+
+      set({ 
+        isConnected: true, 
+        account: {
+          ...result,
+          balance
+        }, 
+        isInitialized: true,
+        walletType: WALLET_TYPES.PLUG
+      });
+
+      // Update storage
+      selectedWalletId.set(walletId);
+      currentWalletType.set(WALLET_TYPES.PLUG);
+      storage.set("LAST_WALLET", walletId);
+      storage.set("WAS_CONNECTED", "true");
+
+      console.log('🎉 Plug wallet connected with comprehensive permissions');
+      return result;
+    },
+
+    async connectInternetIdentity(): Promise<{owner: Principal} | null> {
+      console.log('🔗 Connecting Internet Identity...');
+      
+      const client = await this.initAuthClient();
+      
+      return new Promise((resolve, reject) => {
+        client.login({
+          identityProvider: CONFIG.isLocal 
+            ? `http://localhost:4943/?canisterId=${LOCAL_CANISTER_IDS.INTERNET_IDENTITY}` 
+            : "https://identity.ic0.app",
+          onSuccess: async () => {
+            try {
+              const identity = client.getIdentity();
+              const principal = identity.getPrincipal();
+              
+              // Create agent for Internet Identity
+              agent = new HttpAgent({
+                // Cast to any to avoid type incompatibility when multiple copies of @dfinity packages exist
+                identity: identity as any,
+                host: CONFIG.isLocal ? 'http://localhost:4943' : 'https://ic0.app'
+              });
+              
+              if (CONFIG.isLocal) {
+                await agent.fetchRootKey();
+              }
+
+              // Convert principal to the correct type by recreating it
+              const principalText = principal.toString();
+              const convertedPrincipal = Principal.fromText(principalText);
+
+              // Get initial balance
+              const balance = await refreshWalletBalance(convertedPrincipal);
+              console.log('II Initial balance:', balance.toString());
+
+              const result = { owner: convertedPrincipal };
+
+              set({
+                isConnected: true,
+                account: {
+                  ...result,
+                  balance
+                },
+                isInitialized: true,
+                walletType: WALLET_TYPES.INTERNET_IDENTITY
+              });
+
+              // Update storage
+              selectedWalletId.set(WALLET_TYPES.INTERNET_IDENTITY);
+              currentWalletType.set(WALLET_TYPES.INTERNET_IDENTITY);
+              storage.set("LAST_WALLET", WALLET_TYPES.INTERNET_IDENTITY);
+              storage.set("WAS_CONNECTED", "true");
+
+              console.log('🎉 Internet Identity connected successfully');
+              resolve(result);
+            } catch (error) {
+              console.error('Internet Identity connection error:', error);
+              reject(error);
+            }
+          },
+          onError: (error) => {
+            console.error('Internet Identity login error:', error);
+            reject(new Error('Internet Identity login failed'));
+          }
+        });
+      });
+    },
+
+    async disconnect(): Promise<void> {
+      const state = get(store);
+      
+      if (state.walletType === WALLET_TYPES.INTERNET_IDENTITY && authClient) {
+        await authClient.logout();
+      } else if (state.walletType === WALLET_TYPES.PLUG) {
+        // Clear permission cache on disconnect
+        permissionManager.clearCache();
+        // Disconnect Plug wallet if available
+        if (window.ic?.plug) {
+          try {
+            await window.ic.plug.disconnect();
+          } catch (error) {
+            console.warn('Plug disconnect failed, but continuing cleanup:', error);
+          }
+        }
+      }
+      
       set({ 
         isConnected: false, 
         account: null, 
-        isInitialized: true 
+        isInitialized: true,
+        walletType: null
       });
       selectedWalletId.set(null);
+      currentWalletType.set(null);
       connectionError.set(null);
       storage.clear();
     },
@@ -152,28 +276,56 @@ function createAuthStore() {
       set({ 
         isConnected: false, 
         account: null, 
-        isInitialized: true 
+        isInitialized: true,
+        walletType: null
       });
       connectionError.set(error instanceof Error ? error.message : String(error));
       selectedWalletId.set(null);
+      currentWalletType.set(null);
       // Clear permissions on error
       permissionManager.clearCache();
     },
 
     async getActor<T>(canisterId: string, idl: any): Promise<T> {
-      if (!pnp.isConnected()) {
+      const state = get(store);
+      
+      if (!state.isConnected) {
         throw new Error('Wallet not connected');
       }
 
-      // FIXED: Remove permission check that causes "Permission request was denied" errors
-      // Permissions are handled by the wallet connection itself, not by explicit requests
-      // The wallet will prompt for permissions only when actually needed for transactions
+      if (state.walletType === WALLET_TYPES.INTERNET_IDENTITY) {
+        if (!agent) {
+          throw new Error('Internet Identity agent not initialized');
+        }
+        
+        // Create actor using Internet Identity agent
+        const { Actor } = await import('@dfinity/agent');
+        return Actor.createActor(idl, {
+          agent,
+          canisterId
+        }) as T;
+      } else {
+        // Use Plug wallet
+        if (!pnp.isConnected()) {
+          throw new Error('Plug wallet not connected');
+        }
 
-      return pnp.getActor(canisterId, idl);
+        // FIXED: Remove permission check that causes "Permission request was denied" errors
+        // Permissions are handled by the wallet connection itself, not by explicit requests
+        // The wallet will prompt for permissions only when actually needed for transactions
+
+        return pnp.getActor(canisterId, idl);
+      }
     },
 
     async isWalletConnected(): Promise<boolean> {
-      return pnp.isConnected();
+      const state = get(store);
+      
+      if (state.walletType === WALLET_TYPES.INTERNET_IDENTITY) {
+        return authClient ? await authClient.isAuthenticated() : false;
+      } else {
+        return pnp.isConnected();
+      }
     },
     
     // Check if wallet is authenticated and has permissions
@@ -181,7 +333,12 @@ function createAuthStore() {
       const isConnected = await this.isWalletConnected();
       if (!isConnected) return false;
       
-      return permissionManager.hasPermissions();
+      const state = get(store);
+      if (state.walletType === WALLET_TYPES.INTERNET_IDENTITY) {
+        return true; // Internet Identity is authenticated if connected
+      } else {
+        return permissionManager.hasPermissions();
+      }
     },
     
     // Ensure both connection and permissions
@@ -189,7 +346,12 @@ function createAuthStore() {
       const isConnected = await this.isWalletConnected();
       if (!isConnected) return false;
       
-      return await permissionManager.ensurePermissions();
+      const state = get(store);
+      if (state.walletType === WALLET_TYPES.INTERNET_IDENTITY) {
+        return true; // Internet Identity doesn't need additional permissions
+      } else {
+        return await permissionManager.ensurePermissions();
+      }
     },
     
     // Get the current principal

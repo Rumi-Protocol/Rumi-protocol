@@ -4,26 +4,39 @@
   import { walletStore } from '../../stores/wallet';
   import { get } from 'svelte/store';
   import { permissionManager } from '../../services/PermissionManager';
+  import { WALLET_TYPES } from '../../services/auth';
 
-  interface WalletInfo extends Omit<PNPWallet, 'adapter'> {
+  interface WalletInfo extends Omit<PNPWallet, 'adapter' | 'logo'> {
     id: string;
     name: string;
     icon?: string;
     description?: string;
     recommended?: boolean;
+    logo?: string; // Add optional logo property for compatibility
   }
 
   console.log("Available wallets:", walletsList);
   
-  // Filter out OISY wallet from the list
-  const walletList: WalletInfo[] = walletsList
-    .filter(wallet => !wallet.name.toLowerCase().includes('oisy'))
-    .filter(wallet => !wallet.name.includes('NFID'))
-    .filter(wallet => !wallet.name.includes('Internet Identity'))
-    .map(wallet => ({
-      ...wallet,
-      description: wallet.id === 'nfid' ? 'Sign in with Google' : undefined
-    }));
+  // Filter out OISY wallet from the list and add Internet Identity
+  const walletList: WalletInfo[] = [
+    // Add Internet Identity first
+    {
+      id: WALLET_TYPES.INTERNET_IDENTITY,
+      name: 'Internet Identity',
+      icon: '/main-icp-logo.png',
+      description: 'Powered by Internet Computer',
+      recommended: true
+    },
+    // Add filtered Plug wallets
+    ...walletsList
+      .filter(wallet => !wallet.name.toLowerCase().includes('oisy'))
+      .filter(wallet => !wallet.name.includes('NFID'))
+      .filter(wallet => !wallet.name.includes('Internet Identity'))
+      .map(wallet => ({
+        ...wallet,
+        description: wallet.id === 'nfid' ? 'Sign in with Google' : undefined
+      }))
+  ];
 
   let error: string | null = null;
   let showWalletDialog = false;
@@ -83,7 +96,7 @@
 
   function formatAddress(addr: string | null): string {
     if (!addr) return '';
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    return addr; // Return the full principal ID
   }
 
   // Handle clicks outside the wallet dialog to close it
@@ -134,10 +147,6 @@
       isRefreshingBalance = false;
     }
   }
-
-  function isPlugInstalled(): boolean {
-    return typeof window !== 'undefined' && window?.ic?.plug !== undefined;
-  }
   
   $: isConnected = $walletStore.isConnected;
   $: account = $walletStore.principal?.toString() ?? null;
@@ -157,20 +166,6 @@
 <svelte:head>
   <!-- Add any necessary script imports here -->
 </svelte:head>
-
-{#if typeof window !== 'undefined' && !isPlugInstalled()}
-  <div class="text-center p-4 bg-yellow-900/50 rounded-lg mb-4">
-    <p class="text-yellow-200 mb-2">Plug wallet is required to use this application</p>
-    <a
-      href="https://plugwallet.ooo/"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="text-yellow-400 hover:text-yellow-300 underline"
-    >
-      Click here to install Plug wallet
-    </a>
-  </div>
-{/if}
 
 <div class="relative" id="wallet-container">
   {#if !isConnected}
@@ -210,7 +205,7 @@
           <div class="flex flex-col gap-3">
             {#each walletList as wallet (wallet.id)}
               <button
-                class="flex items-center justify-between w-full px-4 py-3 text-white bg-gray-800/50 rounded-xl border border-purple-500/10 hover:bg-purple-900/20 hover:border-purple-500/30 transition-all duration-200"
+                class="flex items-center justify-between w-full px-4 py-3 text-white rounded-xl border transition-all duration-200 {wallet.recommended ? 'bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-purple-500/30 hover:border-purple-400/50' : 'bg-gray-800/50 border-purple-500/10 hover:bg-purple-900/20 hover:border-purple-500/30'}"
                 on:click|stopPropagation={() => connectWallet(wallet.id)}
                 disabled={connecting}
               >
@@ -219,7 +214,7 @@
                     <img 
                       src={wallet.icon}
                       alt={wallet.name} 
-                      class="w-10 h-10"
+                      class="w-10 h-10 rounded-lg object-contain"
                     />
                   {:else}
                     <div class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
@@ -227,9 +222,14 @@
                     </div>
                   {/if}
                   <div class="flex-col">
-                    <span class="text-lg">{wallet.name}</span>
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">{wallet.name}</span>
+                      {#if wallet.recommended}
+                        <span class="px-2 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-full">Recommended</span>
+                      {/if}
+                    </div>
                     {#if wallet.description}
-                      <span class="flex-col text-md text-gray-400">{wallet.description}</span>
+                      <span class="flex-col text-sm text-gray-400">{wallet.description}</span>
                     {/if}
                   </div>
                 </div>
@@ -267,92 +267,158 @@
     <div class="relative">
       <button
         id="wallet-button"
-        class="glass-panel hover:bg-[#522785]/20 px-4 py-2 flex items-center gap-2"
+        class="bg-gray-900/80 backdrop-blur-sm border border-purple-500/20 hover:border-purple-400/40 hover:bg-gray-800/80 px-4 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-200 shadow-lg"
         on:click|stopPropagation={() => { showWalletDialog = !showWalletDialog; console.log("Toggle wallet dropdown:", showWalletDialog); }}
         aria-expanded={showWalletDialog}
         aria-controls="wallet-dialog"
       >
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
+          <!-- Wallet Icon -->
           {#if currentIcon}
             <img
               src={currentIcon}
               alt="Wallet Icon"
-              class="w-5 h-5 rounded-full"
+              class="w-6 h-6 rounded-full"
             />
           {:else}
-            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+            <div class="w-6 h-6 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+              <div class="w-2 h-2 bg-white rounded-full"></div>
+            </div>
           {/if}
-          <span>{formatAddress(account)}</span>
-          <div class="flex items-center gap-2">
-            {#if tokenBalances.ICP}
-              <span class="font-medium">{tokenBalances.ICP.formatted} ICP</span>
-              {#if tokenBalances.ICP.usdValue}
-                <span class="text-gray-400 text-sm">(${tokenBalances.ICP.usdValue.toFixed(2)})</span>
+          
+          <!-- Principal ID -->
+          <div class="flex flex-col items-start">
+            <span class="text-xs text-gray-400 font-mono">{formatAddress(account)}</span>
+            <div class="flex items-center gap-3">
+              {#if tokenBalances.ICP}
+                <div class="flex items-center gap-1">
+                  <span class="font-medium text-white text-sm">{tokenBalances.ICP.formatted} ICP</span>
+                  {#if tokenBalances.ICP.usdValue}
+                    <span class="text-gray-400 text-xs">(${tokenBalances.ICP.usdValue.toFixed(2)})</span>
+                  {/if}
+                </div>
               {/if}
-            {/if}
-            {#if tokenBalances.ICUSD && Number(tokenBalances.ICUSD.formatted) > 0}
-              <span class="text-gray-200 ml-2">{tokenBalances.ICUSD.formatted} ICUSD</span>
-            {/if}
-            <div
-              class="p-1 text-gray-400 hover:text-white cursor-pointer"
-              on:click|stopPropagation={handleRefreshBalance}
-              on:keydown={e => e.key === 'Enter' && handleRefreshBalance(e)}
-              role="button"
-              tabindex="0"
-              title="Refresh balance"
-            >
-              <svg class:animate-spin={isRefreshingBalance} class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              {#if tokenBalances.ICUSD && Number(tokenBalances.ICUSD.formatted) > 0}
+                <span class="text-purple-300 text-sm font-medium">{tokenBalances.ICUSD.formatted} icUSD</span>
+              {/if}
             </div>
           </div>
+          
+          <!-- Refresh Button -->
+          <div
+            class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg cursor-pointer transition-colors duration-200"
+            on:click|stopPropagation={handleRefreshBalance}
+            on:keydown={e => e.key === 'Enter' && handleRefreshBalance(e)}
+            role="button"
+            tabindex="0"
+            title="Refresh balance"
+          >
+            <svg class:animate-spin={isRefreshingBalance} class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          
+          <!-- Dropdown Arrow -->
+          <svg 
+            class="w-4 h-4 text-gray-400 transition-transform duration-200 {showWalletDialog ? 'transform rotate-180' : ''}" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
         </div>
       </button>
 
       {#if showWalletDialog}
         <div 
-          class="absolute right-0 mt-2 w-56 glass-panel p-2 rounded z-50" 
+          class="absolute right-0 mt-2 w-80 bg-gray-900/95 backdrop-blur-lg border border-purple-500/20 rounded-xl shadow-2xl p-0 z-50" 
           id="wallet-dialog"
           role="dialog"
           aria-label="Wallet options"
         >
-          <div class="p-3 border-b border-gray-800">
-            <p class="text-sm text-gray-300 mb-1">Balance</p>
-            {#if tokenBalances.ICP}
-              <div class="flex justify-between">
-                <span>{tokenBalances.ICP.formatted} ICP</span>
-                {#if tokenBalances.ICP.usdValue}
-                  <span class="text-gray-400">${tokenBalances.ICP.usdValue.toFixed(2)}</span>
-                {/if}
+          <!-- Header with wallet info -->
+          <div class="p-4 border-b border-gray-800/50">
+            <div class="flex items-center gap-3 mb-3">
+              {#if currentIcon}
+                <img
+                  src={currentIcon}
+                  alt="Wallet Icon"
+                  class="w-8 h-8 rounded-full"
+                />
+              {:else}
+                <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                  <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"></path>
+                  </svg>
+                </div>
+              {/if}
+              <div>
+                <p class="text-sm font-medium text-white">Connected Wallet</p>
+                <p class="text-xs text-gray-400 font-mono break-all">{formatAddress(account)}</p>
               </div>
-            {/if}
-          </div>
-          <button
-            class="flex items-center w-full gap-2 px-4 py-2 text-sm text-red-500 hover:bg-gray-800/50 hover:text-red-300 rounded"
-            on:click|stopPropagation={disconnectWallet}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            Disconnect
-          </button>
-          
-          <!-- Add troubleshooting options for balance issues -->
-          {#if !tokenBalances.ICP || Number(tokenBalances.ICP.formatted) === 0}
-            <div class="mt-2 pt-2 border-t border-gray-700">
-              <button 
-                class="flex items-center w-full gap-2 px-4 py-2 text-sm text-yellow-500 hover:bg-gray-800/50 rounded"
-                on:click|stopPropagation={handleRefreshBalance}
-              >
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Force Refresh Balance
-              </button>
             </div>
-          {/if}
+            
+            <!-- Balances -->
+            <div class="space-y-2">
+              <h3 class="text-sm font-medium text-gray-300 mb-2">Balances</h3>
+              {#if tokenBalances.ICP}
+                <div class="flex items-center justify-between bg-gray-800/30 rounded-lg p-3">
+                  <div class="flex items-center gap-2">
+                    <img src="/icp_logo.png" alt="ICP" class="w-5 h-5 rounded-full" />
+                    <span class="font-medium text-white">{tokenBalances.ICP.formatted} ICP</span>
+                  </div>
+                  {#if tokenBalances.ICP.usdValue}
+                    <span class="text-gray-400 text-sm">${tokenBalances.ICP.usdValue.toFixed(2)}</span>
+                  {/if}
+                </div>
+              {/if}
+              
+              {#if tokenBalances.ICUSD && Number(tokenBalances.ICUSD.formatted) > 0}
+                <div class="flex items-center justify-between bg-gray-800/30 rounded-lg p-3">
+                  <div class="flex items-center gap-2">
+                    <img src="/icUSD-logo.png" alt="icUSD" class="w-5 h-5 rounded-full" />
+                    <span class="font-medium text-white">{tokenBalances.ICUSD.formatted} icUSD</span>
+                  </div>
+                </div>
+              {/if}
+              
+              {#if (!tokenBalances.ICP || Number(tokenBalances.ICP.formatted) === 0) && (!tokenBalances.ICUSD || Number(tokenBalances.ICUSD.formatted) === 0)}
+                <div class="text-center py-4">
+                  <p class="text-gray-400 text-sm">No balances found</p>
+                  <p class="text-gray-500 text-xs mt-1">Try refreshing your balance</p>
+                </div>
+              {/if}
+            </div>
+          </div>
+          
+          <!-- Actions -->
+          <div class="p-2">
+            <!-- Refresh Balance Button -->
+            <button 
+              class="flex items-center w-full gap-3 px-4 py-3 text-sm text-blue-400 hover:bg-blue-900/20 hover:text-blue-300 rounded-lg transition-colors duration-200 mb-1"
+              on:click|stopPropagation={handleRefreshBalance}
+              disabled={isRefreshingBalance}
+            >
+              <svg class:animate-spin={isRefreshingBalance} class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>{isRefreshingBalance ? 'Refreshing...' : 'Refresh Balance'}</span>
+            </button>
+            
+            <!-- Disconnect Button -->
+            <button
+              class="flex items-center w-full gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 rounded-lg transition-colors duration-200"
+              on:click|stopPropagation={disconnectWallet}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Disconnect Wallet</span>
+            </button>
+          </div>
         </div>
       {/if}
     </div>

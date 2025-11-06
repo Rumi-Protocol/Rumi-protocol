@@ -7139,6 +7139,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rumi_stability_pool"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "ic-cdk 0.12.2",
+ "ic-cdk-macros 0.8.4",
+ "ic-cdk-timers 0.10.0",
+ "ic-stable-structures",
+ "icrc-ledger-client-cdk",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+]
+
+[[package]]
 name = "rumi_treasury"
 version = "0.1.0"
 dependencies = [

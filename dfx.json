@@ -39,6 +39,17 @@
         "shrink": false,
         "init_arg": "(variant { Init = record { token_name = \"Internet Computer Protocol\"; token_symbol = \"ICP\"; minting_account = record { owner = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; initial_balances = vec {}; metadata = vec {}; transfer_fee = 10_000; archive_options = record { trigger_threshold = 1000; num_blocks_to_archive = 1000; controller_id = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; }})"
     },
+    "internet_identity": {
+      "type": "custom",
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      },
+      "frontend": {}
+    },
     "rumi_treasury": {
       "candid": "src/rumi_treasury/rumi_treasury.did",
       "package": "rumi_treasury",

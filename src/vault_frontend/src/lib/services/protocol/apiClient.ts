@@ -4,8 +4,7 @@ import { BigIntUtils } from '../../utils/bigintUtils';
 import { idlFactory as rumi_backendIDL } from '../../../../../declarations/rumi_protocol_backend/rumi_protocol_backend.did.js';
 import { idlFactory as icp_ledgerIDL } from '../../../../../declarations/icp_ledger/icp_ledger.did.js';
 import { idlFactory as icusd_ledgerIDL } from '../../../../../declarations/icusd_ledger/icusd_ledger.did.js';
-import { idlFactory as treasuryIDL } from '../../../../../declarations/rumi_treasury/rumi_treasury.did.js';
-import { CANISTER_IDS, CONFIG, LOCAL_CANISTER_IDS  } from '../../config';
+import { CONFIG  } from '../../config';
 import { walletStore } from '../../stores/wallet';
 import type {
     _SERVICE,
@@ -21,7 +20,6 @@ import { walletOperations } from './walletOperations';
 import { get } from 'svelte/store';
 import { vaultStore } from '$lib/stores/vaultStore';
 import { QueryOperations } from './queryOperations';
-import { permissionManager } from '../PermissionManager';
 import type { 
   VaultDTO, 
   VaultOperationResult, 
@@ -30,14 +28,16 @@ import type {
   CandidVault 
 } from '../types';
 import { protocolService } from '../protocol';
-import { RequestDeduplicator } from '../RequestDeduplicator';
 
 
 
 // Constants from backend
 export const E8S = 100_000_000;
 export const MIN_ICP_AMOUNT = 100_000; // 0.001 ICP
-export const MIN_ICUSD_AMOUNT = 10_000_000; // 0.10 icUSD (10 cents)
+export const MIN_ICUSD_AMOUNT = 100_000_000; // 1 icUSD (reduced from 5)
+export const MIN_PARTIAL_REPAY_AMOUNT = 1_000_000; // 0.01 icUSD for partial repayments
+export const MIN_PARTIAL_LIQUIDATION_AMOUNT = 1_000_000; // 0.01 icUSD for partial liquidations
+export const DUST_THRESHOLD = 100; // 0.000001 icUSD - dust threshold for vault closing
 export const MINIMUM_COLLATERAL_RATIO = 1.33; // 133%
 export const RECOVERY_COLLATERAL_RATIO = 1.5; // 150%
 
@@ -530,18 +530,10 @@ static async borrowFromVault(vaultId: number, icusdAmount: number): Promise<Vaul
     try {
       console.log(`Borrowing ${icusdAmount} icUSD from vault #${vaultId}`);
       
-      // Validate input is finite before any calculations
-      if (!isFinite(icusdAmount) || icusdAmount <= 0) {
+      if (icusdAmount * E8S < MIN_ICUSD_AMOUNT / 10) { // Lower limit for borrowing
         return {
           success: false,
-          error: `Invalid borrowing amount: ${icusdAmount}. Amount must be a finite positive number.`
-        };
-      }
-      
-      if (icusdAmount * E8S < MIN_ICUSD_AMOUNT) { // Updated minimum validation
-        return {
-          success: false,
-          error: `Amount too low. Minimum borrowing amount: ${MIN_ICUSD_AMOUNT / E8S} icUSD`
+          error: `Amount too low. Minimum borrowing amount: ${MIN_ICUSD_AMOUNT / E8S / 10} icUSD`
         };
       }
       
@@ -738,28 +730,79 @@ static async repayToVault(vaultId: number, icusdAmount: number): Promise<VaultOp
     try {
       console.log(`Repaying ${icusdAmount} icUSD to vault #${vaultId}`);
       
-      // Validate input is finite before any calculations
-      if (!isFinite(icusdAmount) || icusdAmount <= 0) {
+      if (icusdAmount * E8S < MIN_ICUSD_AMOUNT / 100) { // Lower limit for repayment
         return {
           success: false,
-          error: `Invalid repayment amount: ${icusdAmount}. Amount must be a finite positive number.`
+          error: `Amount too low. Minimum repayment: ${MIN_ICUSD_AMOUNT / E8S / 100} icUSD`
         };
       }
       
-      if (icusdAmount * E8S < MIN_ICUSD_AMOUNT) {
+      const amountE8s = BigInt(Math.floor(icusdAmount * E8S));
+      const spenderCanisterId = CONFIG.currentCanisterId;
+      
+      // Check current allowance
+      let currentAllowance;
+      try {
+        currentAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+        console.log('Current icUSD allowance:', currentAllowance.toString());
+      } catch (err) {
+        console.error('Error checking icUSD allowance:', err);
         return {
           success: false,
-          error: `Amount too low. Minimum repayment amount: ${MIN_ICUSD_AMOUNT / E8S} icUSD`
+          error: 'Failed to check token allowance. Please ensure your wallet is connected.'
         };
       }
       
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      // Add a buffer to the approval amount (5% buffer is sufficient for icUSD)
+      // icUSD operations typically have smaller fee variations than ICP
+      const bufferAmount = amountE8s * BigInt(105) / BigInt(100);
       
+      if (currentAllowance < amountE8s) {
+        console.log('Insufficient icUSD allowance, requesting approval...');
+        console.log(`Requesting ${bufferAmount} e8s (original: ${amountE8s} e8s)`);
+        
+        try {
+          // IMPORTANT CHANGE: Use approveIcUsdTransfer instead of approveIcpTransfer
+          const approvalResult = await protocolService.approveIcusdTransfer(
+            bufferAmount,  // Use buffered amount for approval
+            spenderCanisterId
+          );
+          
+          if (!approvalResult.success) {
+            return {
+              success: false,
+              error: approvalResult.error || 'Failed to approve icUSD transfer'
+            };
+          }
+          
+          // Short delay to allow approval to be processed
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Verify approval worked
+          const newAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+          console.log('New icUSD allowance after approval:', newAllowance.toString());
+          
+          if (newAllowance < amountE8s) {
+            return {
+              success: false,
+              error: `Approval did not complete successfully. Required: ${amountE8s}, Got: ${newAllowance}`
+            };
+          }
+        } catch (approvalErr) {
+          console.error('icUSD approval error:', approvalErr);
+          return {
+            success: false,
+            error: approvalErr instanceof Error ? 
+              approvalErr.message : 'Unknown error during icUSD approval'
+          };
+        }
+      }
+      
+      // Now proceed with the repayment operation
       const actor = await ApiClient.getAuthenticatedActor();
       const vaultArg = {
         vault_id: BigInt(vaultId),
-        amount: BigInt(Math.floor(icusdAmount * E8S))
+        amount: amountE8s  // Use the original (non-buffered) amount for the actual operation
       };
       
       const result = await actor.repay_to_vault(vaultArg);
@@ -783,9 +826,10 @@ static async repayToVault(vaultId: number, icusdAmount: number): Promise<VaultOp
         error: err instanceof Error ? err.message : 'Unknown error repaying to vault'
       };
     }
-  }, vaultId);
+  }, vaultId); // Pass vaultId to ensure proper operation tracking
 }
 
+  
   /**
    * Close a vault - with enhanced error handling for auto-removed vaults
    */
@@ -863,115 +907,97 @@ static async repayToVault(vaultId: number, icusdAmount: number): Promise<VaultOp
   static clearVaultCache(): void {
     ApiClient.vaultCache = {
       vaults: [],
-      timestamp: 0,
-      loading: false
+      timestamp: 0
     };
   }
 
   // Cache to store user vaults data with timestamp
   private static vaultCache: {
     vaults: VaultDTO[],
-    timestamp: number,
-    loading: boolean  // Add loading flag to prevent duplicate requests
+    timestamp: number
   } = {
     vaults: [],
-    timestamp: 0,
-    loading: false
+    timestamp: 0
   };
 
   /**
-   * Get the current user's vaults with caching and request deduplication
+   * Get the current user's vaults with caching
    */
   static async getUserVaults(forceRefresh = false): Promise<VaultDTO[]> {
-    const walletState = get(walletStore);
-    const userPrincipal = walletState.principal;
-    
-    if (!userPrincipal) {
-      return [];
-    }
-
-    const principalStr = userPrincipal.toString();
-    const cacheKey = `get_vaults_${principalStr}`;
-    
-    // Use request deduplication to prevent multiple simultaneous calls
-    return RequestDeduplicator.deduplicate(cacheKey, async () => {
-      try {
-        const now = Date.now();
-        
-        // Use cache if it's less than 5 seconds old and not forcing refresh
-        if (!forceRefresh && 
-            !ApiClient.vaultCache.loading &&
-            now - ApiClient.vaultCache.timestamp < 5000 && 
-            ApiClient.vaultCache.vaults.length > 0) {
-          console.log('Using cached vaults:', ApiClient.vaultCache.vaults);
-          return ApiClient.vaultCache.vaults;
-        }
-        
-        // Set loading flag to prevent duplicate requests
-        ApiClient.vaultCache.loading = true;
-        
-        const actor = await ApiClient.getAuthenticatedActor();
-        // Use a plain object with toString() to avoid Principal type mismatches between different @dfinity/principal instances
-        const principalParam = { _type: 'Principal', toString: () => principalStr } as any;
-        
-        console.log(`Fetching vaults for principal: ${principalStr}`);
-        const canisterVaults = await actor.get_vaults([principalParam]);
-        console.log('Raw canister vaults data:', canisterVaults);
-        
-        // Get protocol status for ICP price calculation
-        const status = await QueryOperations.getProtocolStatus();
-        const icpPrice = status.lastIcpRate;
-        
-        // Transform canister vaults to our frontend model
-        const vaults: VaultDTO[] = [];
-        
-        // Sort vaults by ID to ensure consistent ordering
-        const sortedVaults = [...canisterVaults].sort((a, b) => 
-          Number(a.vault_id) - Number(b.vault_id)
-        );
-        
-        for (const v of sortedVaults) {
-          // Create a display-friendly ID
-          const vaultId = Number(v.vault_id);
-          
-          // CRITICAL FIX: Convert bigint values properly to numbers with scaling
-          // Use Number() constructor instead of potentially problematic division
-          const icpMargin = Number(v.icp_margin_amount) / E8S;
-          const borrowedIcusd = Number(v.borrowed_icusd_amount) / E8S;
-          
-          console.log(`Processing vault #${vaultId}: ICP=${icpMargin}, icUSD=${borrowedIcusd}`);
-          
-          vaults.push({
-            vaultId,
-            owner: v.owner.toString(),
-            icpMargin,
-            borrowedIcusd,
-            timestamp: now
-          });
-        }
-        
-        // Update cache
-        ApiClient.vaultCache = {
-          vaults,
-          timestamp: now,
-          loading: false
-        };
-        
-        console.log('Processed vault DTOs:', vaults);
-        return vaults;
-      } catch (err) {
-        console.error('Error getting user vaults:', err);
-        // Clear loading flag on error
-        ApiClient.vaultCache.loading = false;
-        
-        // Return cached data if available, even if it's stale
-        if (ApiClient.vaultCache.vaults.length > 0) {
-          console.warn('Returning stale cached vaults due to error');
-          return ApiClient.vaultCache.vaults;
-        }
-        throw err;
+    try {
+      const now = Date.now();
+      // Use cache if it's less than 5 seconds old and not forcing refresh
+      if (!forceRefresh && 
+          now - ApiClient.vaultCache.timestamp < 5000 && 
+          ApiClient.vaultCache.vaults.length > 0) {
+        console.log('Using cached vaults:', ApiClient.vaultCache.vaults);
+        return ApiClient.vaultCache.vaults;
       }
-    });
+      
+      const actor = await ApiClient.getAuthenticatedActor();
+      const walletState = get(walletStore);
+      const userPrincipal = walletState.principal;
+      
+      if (!userPrincipal) {
+        return [];
+      }
+      
+      const principalStr = userPrincipal.toString();
+      const principal = Principal.fromText(principalStr);
+      
+      console.log(`Fetching vaults for principal: ${principalStr}`);
+      const canisterVaults = await actor.get_vaults([principal]);
+      console.log('Raw canister vaults data:', canisterVaults);
+      
+      // Transform canister vaults to our frontend model
+      const vaults: VaultDTO[] = [];
+      
+      // Get ICP price for collateral value calculation
+      const status = await QueryOperations.getProtocolStatus();
+      const icpPrice = status.lastIcpRate;
+      
+      // Sort vaults by ID to ensure consistent ordering
+      const sortedVaults = [...canisterVaults].sort((a, b) => 
+        Number(a.vault_id) - Number(b.vault_id)
+      );
+      
+      for (const v of sortedVaults) {
+        // Create a display-friendly ID
+        const vaultId = Number(v.vault_id);
+        
+        // CRITICAL FIX: Convert bigint values properly to numbers with scaling
+        // Use Number() constructor instead of potentially problematic division
+        const icpMargin = Number(v.icp_margin_amount) / E8S;
+        const borrowedIcusd = Number(v.borrowed_icusd_amount) / E8S;
+        
+        console.log(`Processing vault #${vaultId}: ICP=${icpMargin}, icUSD=${borrowedIcusd}`);
+        
+        vaults.push({
+          vaultId,
+          owner: v.owner.toString(),
+          icpMargin,
+          borrowedIcusd,
+          timestamp: now
+        });
+      }
+      
+      // Update cache
+      ApiClient.vaultCache = {
+        vaults,
+        timestamp: now
+      };
+      
+      console.log('Processed vault DTOs:', vaults);
+      return vaults;
+    } catch (err) {
+      console.error('Error getting user vaults:', err);
+      // Return cached data if available, even if it's stale
+      if (ApiClient.vaultCache.vaults.length > 0) {
+        console.warn('Returning stale cached vaults due to error');
+        return ApiClient.vaultCache.vaults;
+      }
+      throw err;
+    }
   }
 
   /**
@@ -1529,116 +1555,7 @@ static async withdrawCollateralAndCloseVault(vaultId: number): Promise<VaultOper
     }
   
     /**
-     * Partially liquidate a specific vault
-     * @param vaultId The ID of the vault to liquidate
-     * @param icusdAmount The amount of icUSD to liquidate
-     */
-    static async liquidateVaultPartial(vaultId: number, icusdAmount: number): Promise<VaultOperationResult> {
-      return ApiClient.executeSequentialOperation(async () => {
-        try {
-          console.log(`Partially liquidating vault #${vaultId} with ${icusdAmount} icUSD`);
-          
-          // First get the vault to validate the operation
-          const vaults = await ApiClient.getLiquidatableVaults();
-          const vault = vaults.find(v => Number(v.vault_id) === vaultId);
-          
-          if (!vault) {
-            return {
-              success: false,
-              error: "Vault not found or is not liquidatable"
-            };
-          }
-          
-          // Validate that partial liquidation amount is reasonable
-          const totalDebt = Number(vault.borrowed_icusd_amount) / E8S;
-          const maxPartialAmount = totalDebt * 0.5; // 50% maximum
-          
-          if (icusdAmount > totalDebt) {
-            return {
-              success: false,
-              error: `Cannot liquidate more than total debt (${totalDebt.toFixed(2)} icUSD)`
-            };
-          }
-          
-          if (icusdAmount > maxPartialAmount) {
-            return {
-              success: false,
-              error: `Partial liquidation limited to 50% of debt (${maxPartialAmount.toFixed(2)} icUSD maximum)`
-            };
-          }
-          
-          console.log(`Vault #${vaultId} partial liquidation: ${icusdAmount} icUSD of ${totalDebt} icUSD total debt`);
-          
-          // Check and set allowance for icUSD with a 20% buffer
-          const bufferedAmount = BigInt(Math.floor((icusdAmount * 1.2) * E8S));
-          const spenderCanisterId = CONFIG.currentCanisterId;
-          
-          // Check current allowance
-          const currentAllowance = await walletOperations.checkIcusdAllowance(spenderCanisterId);
-          console.log(`Current icUSD allowance: ${Number(currentAllowance) / E8S}`);
-          
-          // If allowance is insufficient, request approval
-          if (currentAllowance < bufferedAmount) {
-            console.log(`Setting icUSD approval for ${Number(bufferedAmount) / E8S}`);
-            
-            const approvalResult = await walletOperations.approveIcusdTransfer(
-              bufferedAmount,
-              spenderCanisterId
-            );
-            
-            if (!approvalResult.success) {
-              return {
-                success: false,
-                error: approvalResult.error || "Failed to approve icUSD transfer"
-              };
-            }
-            
-            console.log(`Successfully approved ${Number(bufferedAmount) / E8S} icUSD`);
-            
-            // Short pause to ensure approval transaction is processed
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-          
-          // Now proceed with partial liquidation
-          const actor = await ApiClient.getAuthenticatedActor();
-          const icusdAmountE8s = BigInt(Math.floor(icusdAmount * E8S));
-          const result = await actor.liquidate_vault_partial(BigInt(vaultId), icusdAmountE8s);
-          
-          if ('Ok' in result) {
-            return {
-              success: true,
-              vaultId,
-              blockIndex: Number(result.Ok.block_index),
-              feePaid: Number(result.Ok.fee_amount_paid) / E8S
-            };
-          } else {
-            return {
-              success: false,
-              error: ApiClient.formatProtocolError(result.Err)
-            };
-          }
-        } catch (err) {
-          console.error('Error partially liquidating vault:', err);
-          
-          // Check for specific underflow error and provide a better message
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          if (errorMessage.includes('underflow') && errorMessage.includes('numeric.rs')) {
-            return {
-              success: false,
-              error: "Partial liquidation failed due to a calculation error. The vault may have been modified or its state has changed."
-            };
-          }
-          
-          return {
-            success: false,
-            error: err instanceof Error ? err.message : 'Unknown error partially liquidating vault'
-          };
-        }
-      }, vaultId); // Pass vaultId to ensure proper operation tracking
-    }
-
-    /**
-     * Liquidate a specific vault (complete liquidation)
+     * Liquidate a specific vault
      * @param vaultId The ID of the vault to liquidate
      */
     static async liquidateVault(vaultId: number): Promise<VaultOperationResult> {
@@ -1728,6 +1645,254 @@ static async withdrawCollateralAndCloseVault(vaultId: number): Promise<VaultOper
       }, vaultId); // Pass vaultId to ensure proper operation tracking
     }
 
+    /**
+     * Partially repay icUSD to a vault
+     * @param vaultId The ID of the vault to repay
+     * @param icusdAmount The amount of icUSD to repay (can be less than full debt)
+     */
+    static async partialRepayToVault(vaultId: number, icusdAmount: number): Promise<VaultOperationResult> {
+      return ApiClient.executeSequentialOperation(async () => {
+        try {
+          console.log(`Partially repaying ${icusdAmount} icUSD to vault #${vaultId}`);
+          
+          if (icusdAmount * E8S < MIN_ICUSD_AMOUNT / 100) { // Lower limit for partial repayment
+            return {
+              success: false,
+              error: `Amount too low. Minimum partial repayment: ${MIN_ICUSD_AMOUNT / E8S / 100} icUSD`
+            };
+          }
+          
+          const amountE8s = BigInt(Math.floor(icusdAmount * E8S));
+          const spenderCanisterId = CONFIG.currentCanisterId;
+          
+          // Check current allowance
+          let currentAllowance;
+          try {
+            currentAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+            console.log('Current icUSD allowance:', currentAllowance.toString());
+          } catch (err) {
+            console.error('Error checking icUSD allowance:', err);
+            return {
+              success: false,
+              error: 'Failed to check token allowance. Please ensure your wallet is connected.'
+            };
+          }
+          
+          // Add a buffer to the approval amount (5% buffer is sufficient for icUSD)
+          const bufferAmount = amountE8s * BigInt(105) / BigInt(100);
+          
+          if (currentAllowance < amountE8s) {
+            console.log('Insufficient icUSD allowance, requesting approval...');
+            console.log(`Requesting ${bufferAmount} e8s (original: ${amountE8s} e8s)`);
+            
+            try {
+              const approvalResult = await protocolService.approveIcusdTransfer(
+                bufferAmount,  // Use buffered amount for approval
+                spenderCanisterId
+              );
+              
+              if (!approvalResult.success) {
+                return {
+                  success: false,
+                  error: approvalResult.error || 'Failed to approve icUSD transfer'
+                };
+              }
+              
+              // Short delay to allow approval to be processed
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Verify approval worked
+              const newAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+              console.log('New icUSD allowance after approval:', newAllowance.toString());
+              
+              if (newAllowance < amountE8s) {
+                return {
+                  success: false,
+                  error: `Approval did not complete successfully. Required: ${amountE8s}, Got: ${newAllowance}`
+                };
+              }
+            } catch (approvalErr) {
+              console.error('icUSD approval error:', approvalErr);
+              return {
+                success: false,
+                error: approvalErr instanceof Error ? 
+                  approvalErr.message : 'Unknown error during icUSD approval'
+              };
+            }
+          }
+          
+          // Now proceed with the partial repayment operation
+          const actor = await ApiClient.getAuthenticatedActor();
+          const vaultArg = {
+            vault_id: BigInt(vaultId),
+            amount: amountE8s  // Use the original (non-buffered) amount for the actual operation
+          };
+          
+          const result = await actor.partial_repay_to_vault(vaultArg);
+          
+          if ('Ok' in result) {
+            return {
+              success: true,
+              vaultId,
+              blockIndex: Number(result.Ok)
+            };
+          } else {
+            return {
+              success: false,
+              error: ApiClient.formatProtocolError(result.Err)
+            };
+          }
+        } catch (err) {
+          console.error('Error partially repaying to vault:', err);
+          return {
+            success: false,
+            error: err instanceof Error ? err.message : 'Unknown error partially repaying to vault'
+          };
+        }
+      }, vaultId); // Pass vaultId to ensure proper operation tracking
+    }
+
+    /**
+     * Partially liquidate a vault
+     * @param vaultId The ID of the vault to liquidate
+     * @param icusdAmount The amount of icUSD to pay for liquidation (can be less than full debt)
+     */
+    static async partialLiquidateVault(vaultId: number, icusdAmount: number): Promise<VaultOperationResult> {
+      return ApiClient.executeSequentialOperation(async () => {
+        try {
+          console.log(`Partially liquidating vault #${vaultId} with ${icusdAmount} icUSD`);
+          
+          if (icusdAmount * E8S < MIN_PARTIAL_LIQUIDATION_AMOUNT) { // Use proper minimum for partial liquidation
+            return {
+              success: false,
+              error: `Amount too low. Minimum partial liquidation: ${MIN_PARTIAL_LIQUIDATION_AMOUNT / E8S} icUSD`
+            };
+          }
+          
+          // First get the vault to check debt amount
+          const vaults = await ApiClient.getLiquidatableVaults();
+          const vault = vaults.find(v => Number(v.vault_id) === vaultId);
+          
+          if (!vault) {
+            return {
+              success: false,
+              error: "Vault not found or is not liquidatable"
+            };
+          }
+          
+          // Convert debt amount from bigint to number
+          const icusdDebt = Number(vault.borrowed_icusd_amount) / E8S;
+          console.log(`Vault #${vaultId} has debt of ${icusdDebt} icUSD`);
+          
+          // Validate that we're not trying to liquidate more than the debt
+          if (icusdAmount > icusdDebt) {
+            return {
+              success: false,
+              error: `Cannot liquidate more than the debt. Maximum liquidation amount: ${icusdDebt} icUSD`
+            };
+          }
+          
+          const amountE8s = BigInt(Math.floor(icusdAmount * E8S));
+          const spenderCanisterId = CONFIG.currentCanisterId;
+          
+          // Check current allowance
+          let currentAllowance;
+          try {
+            currentAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+            console.log('Current icUSD allowance:', currentAllowance.toString());
+          } catch (err) {
+            console.error('Error checking icUSD allowance:', err);
+            return {
+              success: false,
+              error: 'Failed to check token allowance. Please ensure your wallet is connected.'
+            };
+          }
+          
+          // Add a buffer to the approval amount (5% buffer is sufficient for icUSD)
+          const bufferAmount = amountE8s * BigInt(105) / BigInt(100);
+          
+          if (currentAllowance < amountE8s) {
+            console.log('Insufficient icUSD allowance, requesting approval...');
+            console.log(`Requesting ${bufferAmount} e8s (original: ${amountE8s} e8s)`);
+            
+            try {
+              const approvalResult = await protocolService.approveIcusdTransfer(
+                bufferAmount,  // Use buffered amount for approval
+                spenderCanisterId
+              );
+              
+              if (!approvalResult.success) {
+                return {
+                  success: false,
+                  error: approvalResult.error || 'Failed to approve icUSD transfer'
+                };
+              }
+              
+              // Short delay to allow approval to be processed
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Verify approval worked
+              const newAllowance = await protocolService.checkIcusdAllowance(spenderCanisterId);
+              console.log('New icUSD allowance after approval:', newAllowance.toString());
+              
+              if (newAllowance < amountE8s) {
+                return {
+                  success: false,
+                  error: `Approval did not complete successfully. Required: ${amountE8s}, Got: ${newAllowance}`
+                };
+              }
+            } catch (approvalErr) {
+              console.error('icUSD approval error:', approvalErr);
+              return {
+                success: false,
+                error: approvalErr instanceof Error ? 
+                  approvalErr.message : 'Unknown error during icUSD approval'
+              };
+            }
+          }
+          
+          // Now proceed with the partial liquidation operation
+          const actor = await ApiClient.getAuthenticatedActor();
+          const vaultArg = {
+            vault_id: BigInt(vaultId),
+            amount: amountE8s  // Use the original (non-buffered) amount for the actual operation
+          };
+          
+          const result = await actor.partial_liquidate_vault(vaultArg);
+          
+          if ('Ok' in result) {
+            return {
+              success: true,
+              vaultId,
+              blockIndex: Number(result.Ok.block_index),
+              feePaid: Number(result.Ok.fee_amount_paid) / E8S
+            };
+          } else {
+            return {
+              success: false,
+              error: ApiClient.formatProtocolError(result.Err)
+            };
+          }
+        } catch (err) {
+          console.error('Error partially liquidating vault:', err);
+          
+          // Check for specific underflow error and provide a better message
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          if (errorMessage.includes('underflow') && errorMessage.includes('numeric.rs')) {
+            return {
+              success: false,
+              error: "Partial liquidation failed due to a calculation error. The vault may have already been liquidated or its state has changed."
+            };
+          }
+          
+          return {
+            success: false,
+            error: err instanceof Error ? err.message : 'Unknown error partially liquidating vault'
+          };
+        }
+      }, vaultId); // Pass vaultId to ensure proper operation tracking
+    }
+
   /**
    * Clear all stale operation states
    */
@@ -1739,153 +1904,103 @@ static async withdrawCollateralAndCloseVault(vaultId: number): Promise<VaultOper
       ApiClient.operationTimestamps.clear();
        console.log(`Cleared ${clearedCount} stale vault operations`);
     }
-  
+
 
 
 }
 
-// Add treasury service for accessing fee data
+/**
+ * Treasury Service for managing protocol fee collections
+ */
 export class TreasuryService {
-  private static readonly TREASURY_CANISTER_ID = 'i5ige-naaaa-aaaai-q33ua-cai';
-  
-  // Get treasury status and balances
-  static async getTreasuryStatus(): Promise<{
-    totalDeposits: number;
-    balances: { [key: string]: number };
-    controller: string;
-    isPaused: boolean;
-  }> {
+  /**
+   * Check if the current user is the treasury controller
+   */
+  static async isController(): Promise<boolean> {
     try {
-      // Create anonymous actor for treasury queries
-      const treasuryActor = Actor.createActor(treasuryIDL as any, {
-        agent: new HttpAgent({ host: CONFIG.host }),
-        canisterId: this.TREASURY_CANISTER_ID
-      }) as any; // Type as 'any' to handle the treasury service interface
-      
-      const status = await treasuryActor.get_status();
-      
-      // Convert the balances array to a more usable object format
-      const balances: { [key: string]: number } = {};
-      if (status.balances) {
-        for (const [assetType, assetBalance] of status.balances) {
-          let assetKey = 'UNKNOWN';
-          if ('ICUSD' in assetType) assetKey = 'ICUSD';
-          else if ('ICP' in assetType) assetKey = 'ICP';
-          else if ('CKBTC' in assetType) assetKey = 'CKBTC';
-          
-          balances[assetKey] = Number(assetBalance.total || 0) / E8S;
-        }
+      const walletState = get(walletStore);
+      if (!walletState.isConnected || !walletState.principal) {
+        return false;
       }
-      
-      return {
-        totalDeposits: Number(status.total_deposits || 0),
-        balances,
-        controller: status.controller?.toString() || '',
-        isPaused: Boolean(status.is_paused)
-      };
-    } catch (error) {
-      console.error('Error getting treasury status:', error);
-      throw error;
-    }
-  }
-  
-  // Get fee history (deposit records)
-  static async getFeeHistory(start?: number, limit: number = 100): Promise<Array<{
-    id: number;
-    feeType: string;
-    assetType: string;
-    amount: number;
-    blockIndex: number;
-    timestamp: Date;
-    memo: string | null;
-  }>> {
-    try {
-      const treasuryActor = Actor.createActor(treasuryIDL as any, {
-        agent: new HttpAgent({ host: CONFIG.host }),
-        canisterId: this.TREASURY_CANISTER_ID
-      }) as any;
-      
-      const deposits = await treasuryActor.get_deposits(
-        start ? [BigInt(start)] : [], 
-        [limit]
-      );
-      
-      return deposits.map((deposit: any) => {
-        // Parse the deposit type
-        let feeType = 'Unknown';
-        if (deposit.deposit_type && typeof deposit.deposit_type === 'object') {
-          if ('MintingFee' in deposit.deposit_type) feeType = 'MintingFee';
-          else if ('RedemptionFee' in deposit.deposit_type) feeType = 'RedemptionFee';
-          else if ('LiquidationSurplus' in deposit.deposit_type) feeType = 'LiquidationSurplus';
-          else if ('StabilityFee' in deposit.deposit_type) feeType = 'StabilityFee';
-        }
-        
-        // Parse the asset type
-        let assetType = 'Unknown';
-        if (deposit.asset_type && typeof deposit.asset_type === 'object') {
-          if ('ICUSD' in deposit.asset_type) assetType = 'ICUSD';
-          else if ('ICP' in deposit.asset_type) assetType = 'ICP';
-          else if ('CKBTC' in deposit.asset_type) assetType = 'CKBTC';
-        }
-        
-        return {
-          id: Number(deposit.id || 0),
-          feeType,
-          assetType,
-          amount: Number(deposit.amount || 0) / E8S,
-          blockIndex: Number(deposit.block_index || 0),
-          timestamp: new Date(Number(deposit.timestamp || 0) / 1000000), // Convert from nanos
-          memo: deposit.memo && deposit.memo.length > 0 ? deposit.memo[0] : null
-        };
-      });
-    } catch (error) {
-      console.error('Error getting fee history:', error);
-      throw error;
-    }
-  }
-  
-  // Get total fees collected by type
-  static async getFeesByType(): Promise<{ [key: string]: number }> {
-    try {
-      const history = await this.getFeeHistory();
-      const feesByType: { [key: string]: number } = {};
-      
-      for (const deposit of history) {
-        const key = `${deposit.feeType}_${deposit.assetType}`;
-        feesByType[key] = (feesByType[key] || 0) + deposit.amount;
-      }
-      
-      return feesByType;
-    } catch (error) {
-      console.error('Error calculating fees by type:', error);
-      throw error;
+
+      const treasuryCanisterId = CONFIG.treasuryCanisterId;
+      const { idlFactory: treasuryIDL } = await import('../../../../../declarations/rumi_treasury/rumi_treasury.did.js');
+
+      const actor = await walletStore.getActor(treasuryCanisterId, treasuryIDL);
+      const status = await actor.get_status();
+
+      return status.controller.toString() === walletState.principal.toString();
+    } catch (err) {
+      console.error('Error checking controller status:', err);
+      return false;
     }
   }
 
-  // Withdraw funds from treasury (controller only)
+  /**
+   * Get treasury status including balances
+   */
+  static async getTreasuryStatus(): Promise<any> {
+    try {
+      const treasuryCanisterId = CONFIG.treasuryCanisterId;
+      const { idlFactory: treasuryIDL } = await import('../../../../../declarations/rumi_treasury/rumi_treasury.did.js');
+
+      const actor = await walletStore.getActor(treasuryCanisterId, treasuryIDL);
+      const status = await actor.get_status();
+
+      // Transform the status to a more UI-friendly format
+      const balances: Record<string, number> = {};
+      for (const [assetType, balance] of status.balances) {
+        const assetName = Object.keys(assetType)[0]; // Extract variant key
+        balances[assetName] = Number(balance.available) / E8S;
+      }
+
+      return {
+        totalDeposits: Number(status.total_deposits),
+        balances,
+        controller: status.controller.toString(),
+        isPaused: status.is_paused
+      };
+    } catch (err) {
+      console.error('Error getting treasury status:', err);
+      throw new Error('Failed to get treasury status');
+    }
+  }
+
+  /**
+   * Withdraw funds from treasury
+   */
   static async withdrawFromTreasury(
     assetType: 'ICUSD' | 'ICP' | 'CKBTC',
     amount: number,
     to: string,
     memo?: string
-  ): Promise<{ success: boolean; blockIndex?: number; error?: string }> {
+  ): Promise<VaultOperationResult> {
     try {
-      // Get authenticated actor (must be controller)
-      const treasuryActor = await walletStore.getActor(this.TREASURY_CANISTER_ID, treasuryIDL) as any;
-      
-      // Create the asset type object in the format expected by the treasury canister
-      const assetTypeObj: any = {};
-      assetTypeObj[assetType] = null;
-      
+      console.log(`Withdrawing ${amount} ${assetType} from treasury to ${to}`);
+
+      const treasuryCanisterId = CONFIG.treasuryCanisterId;
+      const { idlFactory: treasuryIDL } = await import('../../../../../declarations/rumi_treasury/rumi_treasury.did.js');
+
+      const actor = await walletStore.getActor(treasuryCanisterId, treasuryIDL);
+
+      // Convert amount to e8s
+      const amountE8s = BigInt(Math.floor(amount * E8S));
+
+      // Convert asset type to variant
+      const assetVariant = { [assetType]: null };
+
+      // Convert destination to principal
+      const toPrincipal = Principal.fromText(to);
+
       const withdrawArgs = {
-        asset_type: assetTypeObj,
-        amount: BigInt(Math.floor(amount * E8S)),
-        to: Principal.fromText(to),
+        asset_type: assetVariant,
+        amount: amountE8s,
+        to: toPrincipal,
         memo: memo ? [memo] : []
       };
-      
-      const result = await treasuryActor.withdraw(withdrawArgs);
-      
+
+      const result = await actor.withdraw(withdrawArgs);
+
       if ('Ok' in result) {
         return {
           success: true,
@@ -1894,146 +2009,111 @@ export class TreasuryService {
       } else {
         return {
           success: false,
-          error: result.Err || 'Unknown withdrawal error'
+          error: result.Err
         };
       }
-    } catch (error) {
-      console.error('Error withdrawing from treasury:', error);
+    } catch (err) {
+      console.error('Error withdrawing from treasury:', err);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: err instanceof Error ? err.message : 'Unknown error withdrawing from treasury'
       };
-    }
-  }
-  
-  // Check if current user is treasury controller
-  static async isController(): Promise<boolean> {
-    try {
-      const status = await this.getTreasuryStatus();
-      const walletState = get(walletStore);
-      
-      return walletState.principal?.toString() === status.controller;
-    } catch (error) {
-      console.error('Error checking controller status:', error);
-      return false;
-    }
-  }
-  
-  // Get treasury withdrawal history
-  static async getWithdrawalHistory(limit: number = 50): Promise<any[]> {
-    try {
-      const treasuryActor = Actor.createActor(treasuryIDL as any, {
-        agent: new HttpAgent({ host: CONFIG.host }),
-        canisterId: this.TREASURY_CANISTER_ID
-      }) as any;
-      
-      // Get all deposits and filter for withdrawals (negative amounts or specific types)
-      const deposits = await treasuryActor.get_deposits([], [limit * 2]);
-      
-      // In a full implementation, you'd have withdrawal events
-      // For now, we return the deposit history as reference
-      return deposits.map((deposit: any) => {
-        // Parse deposit type
-        let feeType = 'Unknown';
-        if (deposit.deposit_type && typeof deposit.deposit_type === 'object') {
-          if ('MintingFee' in deposit.deposit_type) feeType = 'MintingFee';
-          else if ('RedemptionFee' in deposit.deposit_type) feeType = 'RedemptionFee';
-          else if ('LiquidationSurplus' in deposit.deposit_type) feeType = 'LiquidationSurplus';
-          else if ('StabilityFee' in deposit.deposit_type) feeType = 'StabilityFee';
-        }
-        
-        // Parse asset type
-        let assetType = 'Unknown';
-        if (deposit.asset_type && typeof deposit.asset_type === 'object') {
-          if ('ICUSD' in deposit.asset_type) assetType = 'ICUSD';
-          else if ('ICP' in deposit.asset_type) assetType = 'ICP';
-          else if ('CKBTC' in deposit.asset_type) assetType = 'CKBTC';
-        }
-        
-        return {
-          id: Number(deposit.id || 0),
-          type: 'deposit', // In future: 'withdrawal'
-          feeType,
-          assetType,
-          amount: Number(deposit.amount || 0) / E8S,
-          blockIndex: Number(deposit.block_index || 0),
-          timestamp: new Date(Number(deposit.timestamp || 0) / 1000000),
-          memo: deposit.memo && deposit.memo.length > 0 ? deposit.memo[0] : null
-        };
-      });
-    } catch (error) {
-      console.error('Error getting withdrawal history:', error);
-      throw error;
     }
   }
 }
 
-// Add Treasury Management Component for controller UI
+/**
+ * Treasury Management Service for analytics and reporting
+ */
 export class TreasuryManagementService {
-  // Get summary of all collected fees
-  static async getFeeSummary(): Promise<{
-    totalByAsset: { [key: string]: number };
-    totalByType: { [key: string]: number };
-    recentActivity: any[];
-  }> {
+  /**
+   * Get summary of fee collections
+   */
+  static async getFeeSummary(): Promise<any> {
     try {
-      const [status, history] = await Promise.all([
-        TreasuryService.getTreasuryStatus(),
-        TreasuryService.getFeeHistory()
-      ]);
-      
-      // Calculate totals by asset type
-      const totalByAsset = {
-        ICUSD: status.balances.ICUSD || 0,
-        ICP: status.balances.ICP || 0,
-        CKBTC: status.balances.CKBTC || 0
-      };
-      
-      // Calculate totals by fee type
-      const totalByType: { [key: string]: number } = {};
-      history.forEach(fee => {
-        const key = `${fee.feeType}_${fee.assetType}`;
-        totalByType[key] = (totalByType[key] || 0) + fee.amount;
-      });
-      
-      // Get recent activity (last 10 items)
-      const recentActivity = history.slice(0, 10);
-      
+      const treasuryCanisterId = CONFIG.treasuryCanisterId;
+      const { idlFactory: treasuryIDL } = await import('../../../../../declarations/rumi_treasury/rumi_treasury.did.js');
+
+      const actor = await walletStore.getActor(treasuryCanisterId, treasuryIDL);
+
+      // Get recent deposits
+      const deposits = await actor.get_deposits([], []);
+
+      // Process deposits to create summary
+      const totalByType: Record<string, number> = {};
+      const recentActivity: any[] = [];
+
+      for (const deposit of deposits) {
+        const feeType = Object.keys(deposit.deposit_type)[0];
+        const assetType = Object.keys(deposit.asset_type)[0];
+        const amount = Number(deposit.amount) / E8S;
+
+        // Accumulate by type
+        if (!totalByType[feeType]) {
+          totalByType[feeType] = 0;
+        }
+        totalByType[feeType] += amount;
+
+        // Add to recent activity
+        recentActivity.push({
+          feeType,
+          assetType,
+          amount,
+          timestamp: new Date(Number(deposit.timestamp) / 1000000), // Convert nanoseconds to milliseconds
+          blockIndex: Number(deposit.block_index)
+        });
+      }
+
+      // Sort recent activity by timestamp descending (most recent first)
+      recentActivity.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
       return {
-        totalByAsset,
         totalByType,
-        recentActivity
+        recentActivity: recentActivity.slice(0, 20) // Return top 20 recent activities
       };
-    } catch (error) {
-      console.error('Error getting fee summary:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error getting fee summary:', err);
+      throw new Error('Failed to get fee summary');
     }
   }
-  
-  // Estimate protocol revenue in USD
-  static async getRevenueEstimate(icpPrice: number): Promise<{
-    totalUSD: number;
-    breakdown: { [key: string]: number };
-  }> {
+
+  /**
+   * Calculate revenue estimate in USD
+   */
+  static async getRevenueEstimate(icpPrice: number): Promise<any> {
     try {
-      const summary = await this.getFeeSummary();
-      
-      // Convert to USD values (assuming icUSD = $1)
-      const icusdUSD = summary.totalByAsset.ICUSD * 1.0;  // 1:1 with USD
-      const icpUSD = summary.totalByAsset.ICP * icpPrice;
-      const ckbtcUSD = summary.totalByAsset.CKBTC * 50000; // Rough BTC price estimate
-      
-      return {
-        totalUSD: icusdUSD + icpUSD + ckbtcUSD,
-        breakdown: {
-          icUSD: icusdUSD,
-          ICP: icpUSD,
-          ckBTC: ckbtcUSD
+      const status = await TreasuryService.getTreasuryStatus();
+
+      // Calculate USD value for each asset
+      const breakdown: Record<string, number> = {};
+      let totalUSD = 0;
+
+      for (const [asset, balance] of Object.entries(status.balances)) {
+        let usdValue = 0;
+
+        if (asset === 'ICUSD') {
+          // icUSD is pegged to USD 1:1
+          usdValue = balance as number;
+        } else if (asset === 'ICP') {
+          // Convert ICP to USD using current price
+          usdValue = (balance as number) * icpPrice;
+        } else if (asset === 'CKBTC') {
+          // For ckBTC, we'd need BTC price - for now use a placeholder
+          // In production, this should fetch BTC price
+          usdValue = (balance as number) * 50000; // Placeholder BTC price
         }
+
+        breakdown[asset] = usdValue;
+        totalUSD += usdValue;
+      }
+
+      return {
+        totalUSD,
+        breakdown
       };
-    } catch (error) {
-      console.error('Error calculating revenue estimate:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error calculating revenue estimate:', err);
+      throw new Error('Failed to calculate revenue estimate');
     }
   }
 }

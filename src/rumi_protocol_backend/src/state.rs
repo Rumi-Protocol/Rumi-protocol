@@ -101,30 +101,6 @@ thread_local! {
     static __STATE: RefCell<Option<State>> = RefCell::default();
 }
 
-// Treasury types - matching the treasury canister interface
-#[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
-pub enum DepositType {
-    MintingFee,
-    RedemptionFee,
-    LiquidationSurplus,
-    StabilityFee,
-}
-
-#[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
-pub enum AssetType {
-    ICUSD,
-    ICP,
-    CKBTC,
-}
-
-#[derive(candid::CandidType, Clone, Debug, serde::Deserialize, Serialize)]
-pub struct DepositArgs {
-    pub deposit_type: DepositType,
-    pub asset_type: AssetType,
-    pub amount: u64,
-    pub block_index: u64,
-    pub memo: Option<String>,
-}
 
 pub struct State {
     pub vault_id_to_vaults: BTreeMap<u64, Vault>,
@@ -146,14 +122,18 @@ pub struct State {
     pub icp_ledger_fee: ICP,
     pub last_icp_rate: Option<UsdIcp>,
     pub last_icp_timestamp: Option<u64>,
-    pub operation_guards: BTreeSet<String>, // Changed to use operation keys instead of just principals
-    pub operation_guard_timestamps: BTreeMap<String, u64>, // Changed to use operation keys
-    pub operation_states: BTreeMap<String, OperationState>, // Changed to use operation keys
-    pub operation_details: BTreeMap<String, (Principal, String)>, // Store principal and operation name for each key
+    pub principal_guards: BTreeSet<Principal>,
+    pub principal_guard_timestamps: BTreeMap<Principal, u64>, // Add timestamps for guards
+    pub operation_states: BTreeMap<Principal, OperationState>, // Track operation states
+    pub operation_names: BTreeMap<Principal, String>, // Track operation names
     pub is_timer_running: bool,
     pub is_fetching_rate: bool,
-    pub treasury_principal: Option<Principal>, // Add treasury principal
-    pub stability_pool_canister: Option<Principal>, // Add stability pool canister
+    
+    // Rate limiting for close_vault operations
+    pub close_vault_requests: BTreeMap<Principal, Vec<u64>>, // Principal -> timestamps of close requests
+    pub global_close_requests: Vec<u64>, // Global timestamps of close requests
+    pub concurrent_close_operations: u32, // Current concurrent close operations
+    pub dust_forgiven_total: ICUSD, // Total dust amount forgiven
 }
 
 impl From<InitArg> for State {
@@ -176,22 +156,119 @@ impl From<InitArg> for State {
             last_icp_timestamp: None,
             last_icp_rate: None,
             next_available_vault_id: 1,
-            operation_guards: BTreeSet::new(),
-            operation_guard_timestamps: BTreeMap::new(), // Initialize empty timestamps map
+            principal_guards: BTreeSet::new(),
+            principal_guard_timestamps: BTreeMap::new(), // Initialize empty timestamps map
             operation_states: BTreeMap::new(),
-            operation_details: BTreeMap::new(),
+            operation_names: BTreeMap::new(),
             liquidity_pool: BTreeMap::new(),
             liquidity_returns: BTreeMap::new(),
             pending_margin_transfers: BTreeMap::new(),
             is_timer_running: false,
             is_fetching_rate: false,
-            treasury_principal: args.treasury_principal, // Initialize treasury principal from args
-            stability_pool_canister: args.stability_pool_principal, // Initialize stability pool canister from args
+            
+            // Rate limiting initialization
+            close_vault_requests: BTreeMap::new(),
+            global_close_requests: Vec::new(),
+            concurrent_close_operations: 0,
+            dust_forgiven_total: ICUSD::new(0),
         }
     }
 }
 
 impl State {
+
+    // Rate limiting functions for close_vault operations
+    pub fn check_close_vault_rate_limit(&mut self, principal: Principal) -> Result<(), ProtocolError> {
+        let current_time = ic_cdk::api::time();
+        let minute_nanos = 60 * 1_000_000_000; // 1 minute in nanoseconds
+        let day_nanos = 24 * 60 * minute_nanos; // 24 hours in nanoseconds
+        
+        // Clean old timestamps (older than 24 hours)
+        let cutoff_time = current_time.saturating_sub(day_nanos);
+        
+        // Clean user's timestamps
+        if let Some(user_requests) = self.close_vault_requests.get_mut(&principal) {
+            user_requests.retain(|&timestamp| timestamp > cutoff_time);
+        }
+        
+        // Clean global timestamps
+        self.global_close_requests.retain(|&timestamp| timestamp > cutoff_time);
+        
+        // Check user rate limits (5 per minute, 60 per day)
+        let user_recent_requests = self.close_vault_requests
+            .get(&principal)
+            .map(|requests| requests.iter().filter(|&&timestamp| timestamp > current_time - minute_nanos).count())
+            .unwrap_or(0);
+            
+        let user_daily_requests = self.close_vault_requests
+            .get(&principal)
+            .map(|requests| requests.len())
+            .unwrap_or(0);
+            
+        if user_recent_requests >= 5 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 5 close_vault calls per minute per user".to_string()
+            ));
+        }
+        
+        if user_daily_requests >= 60 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 60 close_vault calls per day per user".to_string()
+            ));
+        }
+        
+        // Check global rate limits (300 per minute, 30,000 per day)
+        let global_recent_requests = self.global_close_requests
+            .iter()
+            .filter(|&&timestamp| timestamp > current_time - minute_nanos)
+            .count();
+            
+        let global_daily_requests = self.global_close_requests.len();
+        
+        if global_recent_requests >= 300 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 300 close_vault calls per minute globally".to_string()
+            ));
+        }
+        
+        if global_daily_requests >= 30_000 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 30,000 close_vault calls per day globally".to_string()
+            ));
+        }
+        
+        // Check concurrent operations limit (200)
+        if self.concurrent_close_operations >= 200 {
+            return Err(ProtocolError::GenericError(
+                "Rate limit exceeded: Maximum 200 concurrent close_vault operations".to_string()
+            ));
+        }
+        
+        Ok(())
+    }
+    
+    pub fn record_close_vault_request(&mut self, principal: Principal) {
+        let current_time = ic_cdk::api::time();
+        
+        // Record user request
+        self.close_vault_requests
+            .entry(principal)
+            .or_insert_with(Vec::new)
+            .push(current_time);
+            
+        // Record global request
+        self.global_close_requests.push(current_time);
+        
+        // Increment concurrent operations
+        self.concurrent_close_operations += 1;
+    }
+    
+    pub fn complete_close_vault_request(&mut self) {
+        // Decrement concurrent operations
+        if self.concurrent_close_operations > 0 {
+            self.concurrent_close_operations -= 1;
+        }
+    }
 
     pub fn check_price_not_too_old(&self) -> Result<(), ProtocolError> {
         let current_time = ic_cdk::api::time();
@@ -406,31 +483,6 @@ impl State {
         *self.liquidity_pool.get(&principal).unwrap_or(&ICUSD::from(0))
     }
 
-    pub fn liquidate_vault_partial(&mut self, vault_id: u64, debt_to_liquidate: ICUSD, collateral_to_seize: ICP, _icp_rate: UsdIcp) {
-        let should_remove_vault = match self.vault_id_to_vaults.get_mut(&vault_id) {
-            Some(vault) => {
-                // Reduce debt by the liquidated amount (don't zero it out)
-                vault.borrowed_icusd_amount = vault.borrowed_icusd_amount.saturating_sub(debt_to_liquidate);
-                
-                // Reduce collateral by the seized amount
-                vault.icp_margin_amount = vault.icp_margin_amount.saturating_sub(collateral_to_seize);
-                
-                // Check if vault should be removed (all debt paid off or collateral exhausted)
-                vault.borrowed_icusd_amount == ICUSD::new(0) || vault.icp_margin_amount == ICP::new(0)
-            }
-            None => ic_cdk::trap("partial liquidating unknown vault"),
-        };
-        
-        // Remove vault if needed (outside of the mutable borrow)
-        if should_remove_vault {
-            if let Some(vault) = self.vault_id_to_vaults.remove(&vault_id) {
-                if let Some(vault_ids) = self.principal_to_vault_ids.get_mut(&vault.owner) {
-                    vault_ids.remove(&vault_id);
-                }
-            }
-        }
-    }
-
     pub fn liquidate_vault(&mut self, vault_id: u64, mode: Mode, icp_rate: UsdIcp) {
         let vault = self
             .vault_id_to_vaults
@@ -441,27 +493,23 @@ impl State {
         let vault_collateral_ratio = compute_collateral_ratio(&vault, icp_rate);
         
         if mode == Mode::Recovery && vault_collateral_ratio > MINIMUM_COLLATERAL_RATIO {
-            // Partial liquidation - this should now use the new partial liquidation logic
-            // Calculate how much debt to liquidate to bring vault to minimum safe ratio
-            let target_collateral_value = vault.borrowed_icusd_amount * MINIMUM_COLLATERAL_RATIO;
-            let current_collateral_value = vault.icp_margin_amount * icp_rate;
+            // Partial liquidation
+            let partial_margin = (vault.borrowed_icusd_amount * MINIMUM_COLLATERAL_RATIO) / icp_rate;
+            assert!(
+                partial_margin <= vault.icp_margin_amount,
+                "partial margin: {partial_margin}, vault margin: {}",
+                vault.icp_margin_amount
+            );
             
-            if current_collateral_value > target_collateral_value {
-                // Vault can be partially liquidated to become healthy
-                let excess_debt = vault.borrowed_icusd_amount - (current_collateral_value / MINIMUM_COLLATERAL_RATIO);
-                let debt_to_liquidate = excess_debt.min(vault.borrowed_icusd_amount);
-                let collateral_equivalent = debt_to_liquidate / icp_rate;
-                let liquidation_bonus = Ratio::new(dec!(1.1)); // 10% bonus
-                let collateral_to_seize = (collateral_equivalent * liquidation_bonus).min(vault.icp_margin_amount);
-                
-                self.liquidate_vault_partial(vault_id, debt_to_liquidate, collateral_to_seize, icp_rate);
-            } else {
-                // Full liquidation needed
-                if let Some(vault) = self.vault_id_to_vaults.remove(&vault_id) {
-                    if let Some(vault_ids) = self.principal_to_vault_ids.get_mut(&vault.owner) {
-                        vault_ids.remove(&vault_id);
-                    }
+            match self.vault_id_to_vaults.get_mut(&vault_id) {
+                Some(vault) => {
+                    vault.borrowed_icusd_amount = ICUSD::new(0);
+                    
+                    // Ensure no underflow by taking the minimum
+                    let actual_deduction = partial_margin.min(vault.icp_margin_amount);
+                    vault.icp_margin_amount -= actual_deduction;
                 }
+                None => ic_cdk::trap("liquidating unknown vault"),
             }
         } else {
             // Full liquidation
@@ -618,8 +666,8 @@ impl State {
         Ok(())
     }
 
-    pub fn mark_operation_failed(&mut self, operation_key: &str) {
-        if let Some(state) = self.operation_states.get_mut(operation_key) {
+    pub fn mark_operation_failed(&mut self, principal: &Principal) {
+        if let Some(state) = self.operation_states.get_mut(principal) {
             *state = OperationState::Failed;
         }
     }
@@ -646,60 +694,6 @@ impl State {
                 }
             }
         }
-        
-        // Clean up inconsistent vault ID mappings to prevent panics
-        self.clean_inconsistent_vault_mappings();
-    }
-    
-    // Clean up any inconsistent mappings between vault_id_to_vaults and principal_to_vault_ids
-    pub fn clean_inconsistent_vault_mappings(&mut self) {
-        let mut cleaned_count = 0;
-        
-        // Find vault IDs that exist in principal_to_vault_ids but not in vault_id_to_vaults
-        let mut vault_ids_to_remove: Vec<(Principal, u64)> = Vec::new();
-        
-        for (principal, vault_ids) in &self.principal_to_vault_ids {
-            for vault_id in vault_ids {
-                if !self.vault_id_to_vaults.contains_key(vault_id) {
-                    vault_ids_to_remove.push((*principal, *vault_id));
-                    cleaned_count += 1;
-                }
-            }
-        }
-        
-        // Remove the inconsistent vault IDs
-        for (principal, vault_id) in vault_ids_to_remove {
-            if let Some(vault_ids) = self.principal_to_vault_ids.get_mut(&principal) {
-                vault_ids.remove(&vault_id);
-                
-                // If this principal has no more vaults, remove the entry entirely
-                if vault_ids.is_empty() {
-                    self.principal_to_vault_ids.remove(&principal);
-                }
-            }
-        }
-        
-        if cleaned_count > 0 {
-            log!(INFO, "[clean_inconsistent_vault_mappings] Cleaned up {} inconsistent vault ID mappings", cleaned_count);
-        }
-    }
-    
-    // Add treasury management methods
-    pub fn set_treasury_principal(&mut self, treasury_principal: Principal) {
-        self.treasury_principal = Some(treasury_principal);
-    }
-    
-    pub fn get_treasury_principal(&self) -> Option<Principal> {
-        self.treasury_principal
-    }
-    
-    // Add stability pool management methods
-    pub fn set_stability_pool_canister(&mut self, stability_pool_principal: Principal) {
-        self.stability_pool_canister = Some(stability_pool_principal);
-    }
-    
-    pub fn get_stability_pool_canister(&self) -> Option<Principal> {
-        self.stability_pool_canister
     }
 }
 
@@ -735,7 +729,7 @@ pub(crate) fn distribute_across_vaults(
     let mut distributed_icusd: ICUSD = ICUSD::new(0);
 
     for (vault_id, vault) in vaults {
-        if (*vault_id) != target_vault_id {
+        if *vault_id != target_vault_id {
             let share: Ratio = vault.icp_margin_amount / total_icp_margin;
             let icp_share = target_vault.icp_margin_amount * share;
             let icusd_share = target_vault.borrowed_icusd_amount * share;
@@ -849,5 +843,73 @@ mod tests {
         assert_eq!(result[0].icusd_share_amount, ICUSD::new(250_000));
         assert_eq!(result[1].icp_share_amount, ICP::new(262_500));
         assert_eq!(result[1].icusd_share_amount, ICUSD::new(150_000));
+    }
+
+    #[test]
+    fn test_partial_repay_reduces_debt() {
+        // Initialize a minimal state
+        let mut state = State::from(InitArg {
+            xrc_principal: Principal::anonymous(),
+            icusd_ledger_principal: Principal::anonymous(),
+            icp_ledger_principal: Principal::anonymous(),
+            fee_e8s: 0,
+            developer_principal: Principal::anonymous(),
+        });
+
+        // Create a vault with some debt
+        let owner = Principal::anonymous();
+        let vault_id = 1u64;
+        state.open_vault(Vault {
+            owner,
+            vault_id,
+            icp_margin_amount: ICP::new(1_000_000), // 0.01 ICP
+            borrowed_icusd_amount: ICUSD::new(200_000_000), // 2 icUSD
+        });
+
+        // Repay 0.01 icUSD (minimum partial repay in e8s is 1_000_000)
+        let repay_amount = ICUSD::new(1_000_000);
+        state.repay_to_vault(vault_id, repay_amount);
+
+        // Assert debt reduced correctly
+        let vault = state.vault_id_to_vaults.get(&vault_id).unwrap();
+        assert_eq!(vault.borrowed_icusd_amount, ICUSD::new(199_000_000));
+    }
+
+    #[test]
+    fn test_recovery_mode_partial_liquidation_path() {
+        // Initialize state with Recovery mode
+        let mut state = State::from(InitArg {
+            xrc_principal: Principal::anonymous(),
+            icusd_ledger_principal: Principal::anonymous(),
+            icp_ledger_principal: Principal::anonymous(),
+            fee_e8s: 0,
+            developer_principal: Principal::anonymous(),
+        });
+        state.mode = Mode::Recovery;
+
+        // Set a price
+        let icp_rate = UsdIcp::from(dec!(5)); // $5 per ICP
+
+        // Vault with ratio above MINIMUM_COLLATERAL_RATIO but system in Recovery → triggers partial liquidation path
+        // borrowed = 10 icUSD, margin = 3 ICP ⇒ collateral value = $15 ⇒ ratio = 1.5 (> 1.33)
+        let owner = Principal::anonymous();
+        let vault_id = 42u64;
+        state.open_vault(Vault {
+            owner,
+            vault_id,
+            icp_margin_amount: ICP::new(300_000_000), // 3.0 ICP (e8s inside type)
+            borrowed_icusd_amount: ICUSD::new(1_000_000_000), // 10 icUSD
+        });
+
+        // Execute protocol's recovery liquidation logic
+        state.liquidate_vault(vault_id, state.mode, icp_rate);
+
+        // After recovery-mode partial liquidation: debt set to 0 and margin reduced by
+        // partial_margin = borrowed * MINIMUM_COLLATERAL_RATIO / icp_rate
+        let expected_partial_icp = (ICUSD::new(1_000_000_000) * MINIMUM_COLLATERAL_RATIO) / icp_rate;
+
+        let vault = state.vault_id_to_vaults.get(&vault_id).unwrap();
+        assert_eq!(vault.borrowed_icusd_amount, ICUSD::new(0));
+        assert_eq!(vault.icp_margin_amount, ICP::new(300_000_000) - expected_partial_icp);
     }
 }

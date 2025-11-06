@@ -47,7 +47,10 @@ pub const E8S: u64 = 100_000_000;
 
 pub const MIN_LIQUIDITY_AMOUNT: ICUSD = ICUSD::new(1_000_000_000);
 pub const MIN_ICP_AMOUNT: ICP = ICP::new(100_000);  // Instead of MIN_CKBTC_AMOUNT
-pub const MIN_ICUSD_AMOUNT: ICUSD = ICUSD::new(10_000_000); // 0.10 icUSD (10 cents)
+pub const MIN_ICUSD_AMOUNT: ICUSD = ICUSD::new(100_000_000); // 1 icUSD (reduced from 5)
+pub const MIN_PARTIAL_REPAY_AMOUNT: ICUSD = ICUSD::new(1_000_000); // 0.01 icUSD for partial repayments
+pub const MIN_PARTIAL_LIQUIDATION_AMOUNT: ICUSD = ICUSD::new(1_000_000); // 0.01 icUSD for partial liquidations
+pub const DUST_THRESHOLD: ICUSD = ICUSD::new(100); // 0.000001 icUSD - dust threshold for vault closing
 
 // Update collateral ratios per whitepaper
 pub const RECOVERY_COLLATERAL_RATIO: Ratio = Ratio::new(dec!(1.5));  // 150%
@@ -67,8 +70,6 @@ pub struct InitArg {
     pub icp_ledger_principal: Principal,
     pub fee_e8s: u64,
     pub developer_principal: Principal,
-    pub treasury_principal: Option<Principal>,
-    pub stability_pool_principal: Option<Principal>,
 }
 
 #[derive(CandidType, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

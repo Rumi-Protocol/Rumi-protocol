@@ -8,7 +8,8 @@
         {
           "name": "candid:service"
         }
-      ]
+      ],
+      "init_arg": "(variant { Init = record { xrc_principal = principal \"uf6dk-hyaaa-aaaaq-qaaaq-cai\"; icusd_ledger_principal = principal \"u6s2n-gx777-77774-qaaba-cai\"; icp_ledger_principal = principal \"uxrrr-q7777-77774-qaaaq-cai\"; fee_e8s = 100000; developer_principal = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; treasury_principal = opt principal \"p4osj-vaaaa-aaaai-q33ea-cai\"; } })"
     },
     "rumi_protocol_frontend": {
       "source": [
@@ -28,46 +29,26 @@
         "candid": "src/ledger/ledger.did",
         "type": "custom",
         "wasm": "src/ledger/ic-icrc1-ledger.wasm",
-        "shrink": false
+        "shrink": false,
+        "init_arg": "(variant { Init = record { token_name = \"icUSD\"; token_symbol = \"icUSD\"; minting_account = record { owner = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; initial_balances = vec {}; metadata = vec {}; transfer_fee = 100_000; archive_options = record { trigger_threshold = 1000; num_blocks_to_archive = 1000; controller_id = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; }})"
     },
-    "icp_ledger_canister": {
-      "candid": "src/ledger/ledger.did",
+    "icp_ledger": {
+        "candid": "src/ledger/ledger.did",
+        "type": "custom",
+        "wasm": "src/ledger/ic-icrc1-ledger.wasm",
+        "shrink": false,
+        "init_arg": "(variant { Init = record { token_name = \"Internet Computer Protocol\"; token_symbol = \"ICP\"; minting_account = record { owner = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; initial_balances = vec {}; metadata = vec {}; transfer_fee = 10_000; archive_options = record { trigger_threshold = 1000; num_blocks_to_archive = 1000; controller_id = principal \"hlvew-vc3fq-5x546-3zldj-5bwys-tymmg-45jbz-hysz2-tqb5k-4pf3s-fqe\"; }; }})"
+    },
+    "internet_identity": {
       "type": "custom",
-      "wasm": "src/ledger/ic-icrc1-ledger.wasm",
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
       "remote": {
         "id": {
-          "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
         }
-      }
-    },
-    "test_vault_frontend": {
-      "source": [
-        "src/test_vault_frontend/dist"
-      ],
-      "type": "assets",
-      "workspace": "vault_frontend"
-    },
-    "test_icp_ledger_canister": {
-      "candid": "src/ledger/ledger.did",
-      "type": "custom",
-      "wasm": "src/ledger/ic-icrc1-ledger.wasm",
-      "shrink": false
-    },
-    "test_rumi_protocol_backend": {
-      "candid": "src/rumi_protocol_backend/rumi_protocol_backend.did",
-      "package": "rumi_protocol_backend",
-      "type": "rust",
-      "metadata": [
-        {
-          "name": "candid:service"
-        }
-      ]
-    },
-    "test_icusd_ledger": {
-      "candid": "src/ledger/ledger.did",
-      "type": "custom",
-      "wasm": "src/ledger/ic-icrc1-ledger.wasm",
-      "shrink": false
+      },
+      "frontend": {}
     },
     "rumi_treasury": {
       "candid": "src/rumi_treasury/rumi_treasury.did",
@@ -77,7 +58,8 @@
         {
           "name": "candid:service"
         }
-      ]
+      ],
+      "init_arg": "(record { controller = principal \"wrppb-amng2-jzskb-wcmam-mwrmi-ci52r-bkkre-tzu35-hjfpb-dnl4p-6qe\"; icusd_ledger = principal \"4kejc-maaaa-aaaai-q3tqq-cai\"; icp_ledger = principal \"ryjl3-tyaaa-aaaaa-aaaba-cai\"; ckbtc_ledger = opt principal \"mxzaz-hqaaa-aaaar-qaada-cai\"; })"
     },
     "rumi_stability_pool": {
       "candid": "src/rumi_stability_pool/rumi_stability_pool.did",
@@ -88,6 +70,10 @@
           "name": "candid:service"
         }
       ]
+    },
+    "xrc": {
+      "type": "pull",
+      "id": "uf6dk-hyaaa-aaaaq-qaaaq-cai"
     }
   },
   "defaults": {

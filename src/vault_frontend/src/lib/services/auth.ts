@@ -9,6 +9,11 @@ import type { Principal } from '@dfinity/principal';
 
 export type WalletType = 'plug' | 'internet-identity' | null;
 
+export const WALLET_TYPES = {
+  PLUG: 'plug' as const,
+  INTERNET_IDENTITY: 'internet-identity' as const
+};
+
 // Storage keys for persistence
 const STORAGE_KEYS = {
   LAST_WALLET: "rumi_last_wallet",

@@ -7,6 +7,8 @@ export const CANISTER_IDS = {
   PROTOCOL: "aakb7-rqaaa-aaaai-q3oua-cai",
   ICP_LEDGER: "ryjl3-tyaaa-aaaaa-aaaba-cai",
   ICUSD_LEDGER: "4kejc-maaaa-aaaai-q3tqq-cai",
+  TREASURY: "p4osj-vaaaa-aaaai-q33ea-cai",
+  STABILITY_POOL: "jgwkf-3yaaa-aaaai-q34na-cai",
 } as const;
 
 // Canister IDs for local development
@@ -48,11 +50,21 @@ export const CONFIG = {
     return this.isLocal ? LOCAL_CANISTER_IDS.ICP_LEDGER : CANISTER_IDS.ICP_LEDGER;
   },
   
-  // Use proper icUSD ledger ID based on network  
+  // Use proper icUSD ledger ID based on network
   get currentIcusdLedgerId() {
     return this.isLocal ? LOCAL_CANISTER_IDS.ICUSD_LEDGER : CANISTER_IDS.ICUSD_LEDGER;
   },
-  
+
+  // Treasury canister ID
+  get treasuryCanisterId() {
+    return CANISTER_IDS.TREASURY;
+  },
+
+  // Stability pool canister ID
+  get stabilityPoolCanisterId() {
+    return CANISTER_IDS.STABILITY_POOL;
+  },
+
   // Configure the host based on environment
   get host() {
     if (this.isLocal) {

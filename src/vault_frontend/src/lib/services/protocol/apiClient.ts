@@ -1904,9 +1904,218 @@ static async withdrawCollateralAndCloseVault(vaultId: number): Promise<VaultOper
       ApiClient.operationTimestamps.clear();
        console.log(`Cleared ${clearedCount} stale vault operations`);
     }
-  
 
 
+
+}
+
+/**
+ * Treasury Service for managing protocol fee collections
+ */
+export class TreasuryService {
+  /**
+   * Check if the current user is the treasury controller
+   */
+  static async isController(): Promise<boolean> {
+    try {
+      const walletState = get(walletStore);
+      if (!walletState.isConnected || !walletState.principal) {
+        return false;
+      }
+
+      const treasuryCanisterId = CONFIG.treasuryCanisterId;
+      const { idlFactory: treasuryIDL } = await import('../../../../../declarations/rumi_treasury/rumi_treasury.did.js');
+
+      const actor = await walletStore.getActor(treasuryCanisterId, treasuryIDL);
+      const status = await actor.get_status();
+
+      return status.controller.toString() === walletState.principal.toString();
+    } catch (err) {
+      console.error('Error checking controller status:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Get treasury status including balances
+   */
+  static async getTreasuryStatus(): Promise<any> {
+    try {
+      const treasuryCanisterId = CONFIG.treasuryCanisterId;
+      const { idlFactory: treasuryIDL } = await import('../../../../../declarations/rumi_treasury/rumi_treasury.did.js');
+
+      const actor = await walletStore.getActor(treasuryCanisterId, treasuryIDL);
+      const status = await actor.get_status();
+
+      // Transform the status to a more UI-friendly format
+      const balances: Record<string, number> = {};
+      for (const [assetType, balance] of status.balances) {
+        const assetName = Object.keys(assetType)[0]; // Extract variant key
+        balances[assetName] = Number(balance.available) / E8S;
+      }
+
+      return {
+        totalDeposits: Number(status.total_deposits),
+        balances,
+        controller: status.controller.toString(),
+        isPaused: status.is_paused
+      };
+    } catch (err) {
+      console.error('Error getting treasury status:', err);
+      throw new Error('Failed to get treasury status');
+    }
+  }
+
+  /**
+   * Withdraw funds from treasury
+   */
+  static async withdrawFromTreasury(
+    assetType: 'ICUSD' | 'ICP' | 'CKBTC',
+    amount: number,
+    to: string,
+    memo?: string
+  ): Promise<VaultOperationResult> {
+    try {
+      console.log(`Withdrawing ${amount} ${assetType} from treasury to ${to}`);
+
+      const treasuryCanisterId = CONFIG.treasuryCanisterId;
+      const { idlFactory: treasuryIDL } = await import('../../../../../declarations/rumi_treasury/rumi_treasury.did.js');
+
+      const actor = await walletStore.getActor(treasuryCanisterId, treasuryIDL);
+
+      // Convert amount to e8s
+      const amountE8s = BigInt(Math.floor(amount * E8S));
+
+      // Convert asset type to variant
+      const assetVariant = { [assetType]: null };
+
+      // Convert destination to principal
+      const toPrincipal = Principal.fromText(to);
+
+      const withdrawArgs = {
+        asset_type: assetVariant,
+        amount: amountE8s,
+        to: toPrincipal,
+        memo: memo ? [memo] : []
+      };
+
+      const result = await actor.withdraw(withdrawArgs);
+
+      if ('Ok' in result) {
+        return {
+          success: true,
+          blockIndex: Number(result.Ok.block_index)
+        };
+      } else {
+        return {
+          success: false,
+          error: result.Err
+        };
+      }
+    } catch (err) {
+      console.error('Error withdrawing from treasury:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error withdrawing from treasury'
+      };
+    }
+  }
+}
+
+/**
+ * Treasury Management Service for analytics and reporting
+ */
+export class TreasuryManagementService {
+  /**
+   * Get summary of fee collections
+   */
+  static async getFeeSummary(): Promise<any> {
+    try {
+      const treasuryCanisterId = CONFIG.treasuryCanisterId;
+      const { idlFactory: treasuryIDL } = await import('../../../../../declarations/rumi_treasury/rumi_treasury.did.js');
+
+      const actor = await walletStore.getActor(treasuryCanisterId, treasuryIDL);
+
+      // Get recent deposits
+      const deposits = await actor.get_deposits([], []);
+
+      // Process deposits to create summary
+      const totalByType: Record<string, number> = {};
+      const recentActivity: any[] = [];
+
+      for (const deposit of deposits) {
+        const feeType = Object.keys(deposit.deposit_type)[0];
+        const assetType = Object.keys(deposit.asset_type)[0];
+        const amount = Number(deposit.amount) / E8S;
+
+        // Accumulate by type
+        if (!totalByType[feeType]) {
+          totalByType[feeType] = 0;
+        }
+        totalByType[feeType] += amount;
+
+        // Add to recent activity
+        recentActivity.push({
+          feeType,
+          assetType,
+          amount,
+          timestamp: new Date(Number(deposit.timestamp) / 1000000), // Convert nanoseconds to milliseconds
+          blockIndex: Number(deposit.block_index)
+        });
+      }
+
+      // Sort recent activity by timestamp descending (most recent first)
+      recentActivity.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+      return {
+        totalByType,
+        recentActivity: recentActivity.slice(0, 20) // Return top 20 recent activities
+      };
+    } catch (err) {
+      console.error('Error getting fee summary:', err);
+      throw new Error('Failed to get fee summary');
+    }
+  }
+
+  /**
+   * Calculate revenue estimate in USD
+   */
+  static async getRevenueEstimate(icpPrice: number): Promise<any> {
+    try {
+      const status = await TreasuryService.getTreasuryStatus();
+
+      // Calculate USD value for each asset
+      const breakdown: Record<string, number> = {};
+      let totalUSD = 0;
+
+      for (const [asset, balance] of Object.entries(status.balances)) {
+        let usdValue = 0;
+
+        if (asset === 'ICUSD') {
+          // icUSD is pegged to USD 1:1
+          usdValue = balance as number;
+        } else if (asset === 'ICP') {
+          // Convert ICP to USD using current price
+          usdValue = (balance as number) * icpPrice;
+        } else if (asset === 'CKBTC') {
+          // For ckBTC, we'd need BTC price - for now use a placeholder
+          // In production, this should fetch BTC price
+          usdValue = (balance as number) * 50000; // Placeholder BTC price
+        }
+
+        breakdown[asset] = usdValue;
+        totalUSD += usdValue;
+      }
+
+      return {
+        totalUSD,
+        breakdown
+      };
+    } catch (err) {
+      console.error('Error calculating revenue estimate:', err);
+      throw new Error('Failed to calculate revenue estimate');
+    }
+  }
 }
 
 

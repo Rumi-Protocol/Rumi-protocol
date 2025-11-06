@@ -5,7 +5,7 @@ use ic_cdk_macros::{init, post_upgrade, query, update};
 use rumi_protocol_backend::{
     event::Event,
     logs::INFO,
-    numeric::{ICUSD, UsdIcp, UsdCkBtc, Ratio},
+    numeric::{ICUSD, UsdIcp, UsdCkBtc},
     state::{read_state, replace_state, Mode, State},
     vault::{CandidVault, OpenVaultSuccess, VaultArg, CollateralType},
     Fees, GetEventsArg, ProtocolArg, ProtocolError, ProtocolStatus, SuccessWithFee,
@@ -22,25 +22,6 @@ use rumi_protocol_backend::storage::events;
 use rumi_protocol_backend::LiquidityStatus;
 use candid_parser::utils::CandidSource;
 use candid_parser::utils::service_equal;
-
-// Stability Pool Integration Types
-#[derive(candid::CandidType, serde::Deserialize, Clone, Debug)]
-pub struct StabilityPoolLiquidationResult {
-    pub success: bool,
-    pub vault_id: u64,
-    pub liquidated_debt: u64,
-    pub collateral_received: u64,
-    pub collateral_type: String,
-    pub block_index: u64,
-    pub fee: u64,
-}
-
-#[derive(candid::CandidType, serde::Deserialize, Clone, Debug)]
-pub struct StabilityPoolConfig {
-    pub stability_pool_canister: Option<Principal>,
-    pub liquidation_discount: u8,
-    pub enabled: bool,
-}
 
 #[cfg(feature = "self_check")]
 fn ok_or_die(result: Result<(), String>) {
@@ -259,9 +240,9 @@ fn get_vaults(target: Option<Principal>) -> Vec<CandidVault> {
         Some(target) => read_state(|s| match s.principal_to_vault_ids.get(&target) {
             Some(vault_ids) => vault_ids
                 .iter()
-                .filter_map(|id| {
-                    // Use filter_map with proper error handling instead of unwrap
-                    s.vault_id_to_vaults.get(id).map(|vault| CandidVault {
+                .map(|id| {
+                    let vault = s.vault_id_to_vaults.get(id).cloned().unwrap();
+                    CandidVault {
                         owner: vault.owner,
                         borrowed_icusd_amount: vault.borrowed_icusd_amount.to_u64(),
                         icp_margin_amount: vault.icp_margin_amount.to_u64(),
@@ -269,7 +250,6 @@ fn get_vaults(target: Option<Principal>) -> Vec<CandidVault> {
                         vault_id: vault.vault_id,
                         collateral_type: vault.collateral_type,
                     }
-                    })
                 })
                 .collect(),
             None => vec![],
@@ -359,102 +339,28 @@ async fn withdraw_and_close_vault(vault_id: u64) -> Result<Option<u64>, Protocol
     check_postcondition(rumi_protocol_backend::vault::withdraw_and_close_vault(vault_id).await)
 }
 
-// Add the new liquidate vault endpoints
-#[update]
+// Add the new liquidate vault endpoint
 #[candid_method(update)]
+#[update]
 async fn liquidate_vault(vault_id: u64) -> Result<SuccessWithFee, ProtocolError> {
+    validate_call()?;
     check_postcondition(rumi_protocol_backend::vault::liquidate_vault(vault_id).await)
 }
 
-#[update]
+// Add the new partial repay vault endpoint
 #[candid_method(update)]
-async fn liquidate_vault_partial(vault_id: u64, icusd_amount: u64) -> Result<SuccessWithFee, ProtocolError> {
-    check_postcondition(rumi_protocol_backend::vault::liquidate_vault_partial(vault_id, icusd_amount).await)
+#[update]
+async fn partial_repay_to_vault(arg: VaultArg) -> Result<u64, ProtocolError> {
+    validate_call()?;
+    check_postcondition(rumi_protocol_backend::vault::partial_repay_to_vault(arg).await)
 }
 
-// Stability Pool Integration - allows stability pool to execute liquidations
-#[update]
+// Add the new partial liquidate vault endpoint
 #[candid_method(update)]
-async fn stability_pool_liquidate(vault_id: u64, max_debt_to_liquidate: u64) -> Result<StabilityPoolLiquidationResult, ProtocolError> {
-    let caller = ic_cdk::api::caller();
-    
-    // TODO: Add proper authorization check - only allow registered stability pool
-    // For now, we'll allow any caller for testing
-    
-    // Get vault info and validate it's liquidatable
-    let (vault, icp_rate, liquidatable_debt, collateral_available) = read_state(|s| {
-        match s.vault_id_to_vaults.get(&vault_id) {
-            Some(vault) => {
-                let icp_rate = s.last_icp_rate.ok_or("No ICP rate available")?;
-                let ratio = rumi_protocol_backend::compute_collateral_ratio(vault, icp_rate);
-                
-                if ratio >= s.mode.get_minimum_liquidation_collateral_ratio() {
-                    return Err(format!(
-                        "Vault #{} is not liquidatable. Current ratio: {:.2}%, minimum: {:.2}%",
-                        vault_id, 
-                        ratio.to_f64() * 100.0, 
-                        s.mode.get_minimum_liquidation_collateral_ratio().to_f64() * 100.0
-                    ));
-                }
-                
-                // Calculate how much can be liquidated
-                let max_liquidation_ratio = Ratio::new(dec!(0.5)); // 50% max
-                let max_liquidatable = vault.borrowed_icusd_amount * max_liquidation_ratio;
-                let actual_liquidatable_debt = max_liquidatable.min(vault.borrowed_icusd_amount).min(max_debt_to_liquidate.into());
-                
-                // Calculate collateral that will be seized (debt + 10% bonus)
-                let liquidation_bonus = Ratio::new(dec!(1.1)); // 110%
-                let icp_equivalent = actual_liquidatable_debt / icp_rate;
-                let collateral_with_bonus = icp_equivalent * liquidation_bonus;
-                let collateral_to_seize = collateral_with_bonus.min(vault.icp_margin_amount);
-                
-                Ok((vault.clone(), icp_rate, actual_liquidatable_debt, collateral_to_seize))
-            },
-            None => Err(format!("Vault #{} not found", vault_id)),
-        }
-    }).map_err(|e| ProtocolError::GenericError(e))?;
-    
-    if liquidatable_debt == ICUSD::new(0) {
-        return Err(ProtocolError::GenericError("No liquidatable debt available".to_string()));
-    }
-    
-    // Execute the liquidation using existing logic
-    let result = rumi_protocol_backend::vault::liquidate_vault_partial(vault_id, liquidatable_debt.to_u64()).await?;
-    
-    // Return structured result for stability pool
-    Ok(StabilityPoolLiquidationResult {
-        success: true,
-        vault_id,
-        liquidated_debt: liquidatable_debt.to_u64(),
-        collateral_received: collateral_available.to_u64(),
-        collateral_type: "ICP".to_string(), // Currently only ICP is supported
-        block_index: result.block_index,
-        fee: result.fee_amount_paid,
-    })
-}
-
-// Get stability pool configuration
-#[query]
-#[candid_method(query)]
-fn get_stability_pool_config() -> StabilityPoolConfig {
-    read_state(|s| {
-        StabilityPoolConfig {
-            stability_pool_canister: s.stability_pool_canister,
-            liquidation_discount: 10, // 10% discount for stability pool
-            enabled: s.stability_pool_canister.is_some(),
-        }
-    })
-}
-
-// Update stability pool configuration (admin only)
 #[update]
-#[candid_method(update)]
-fn set_stability_pool_canister(canister_id: Principal) -> Result<(), ProtocolError> {
-    mutate_state(|s| {
-        // TODO: Add proper admin authorization check
-        s.stability_pool_canister = Some(canister_id);
-        Ok(())
-    })
+async fn partial_liquidate_vault(arg: VaultArg) -> Result<SuccessWithFee, ProtocolError> {
+    validate_call()?;
+    check_postcondition(rumi_protocol_backend::vault::partial_liquidate_vault(arg).await)
 }
 
 // Add the new get liquidatable vaults endpoint
@@ -792,137 +698,6 @@ async fn recover_pending_transfer(vault_id: u64) -> Result<bool, ProtocolError> 
         // No pending transfer found for this vault
         Err(ProtocolError::GenericError("No pending transfer found for this vault".to_string()))
     }
-}
-
-// Add treasury configuration endpoint (developer only)
-#[candid_method(update)]
-#[update]
-async fn set_treasury_principal(treasury_principal: Principal) -> Result<(), ProtocolError> {
-    let caller = ic_cdk::caller();
-    
-    // Only developer can set treasury principal
-    let is_developer = read_state(|s| s.developer_principal == caller);
-    if (!is_developer) {
-        return Err(ProtocolError::GenericError("Only developer can set treasury principal".to_string()));
-    }
-    
-    mutate_state(|s| {
-        s.set_treasury_principal(treasury_principal);
-    });
-    
-    log!(INFO, "[set_treasury_principal] Treasury principal set to: {}", treasury_principal);
-    Ok(())
-}
-
-#[candid_method(query)]
-#[query]
-fn get_treasury_principal() -> Option<Principal> {
-    read_state(|s| s.get_treasury_principal())
-}
-
-// Add stability pool configuration endpoint (developer only)
-#[candid_method(update)]
-#[update]
-async fn set_stability_pool_principal(stability_pool_principal: Principal) -> Result<(), ProtocolError> {
-    let caller = ic_cdk::caller();
-    
-    // Only developer can set stability pool principal
-    let is_developer = read_state(|s| s.developer_principal == caller);
-    if !is_developer {
-        return Err(ProtocolError::GenericError("Only developer can set stability pool principal".to_string()));
-    }
-    
-    mutate_state(|s| {
-        s.set_stability_pool_canister(stability_pool_principal);
-    });
-    
-    log!(INFO, "[set_stability_pool_principal] Stability pool principal set to: {}", stability_pool_principal);
-    Ok(())
-}
-
-#[candid_method(query)]
-#[query]
-fn get_stability_pool_principal() -> Option<Principal> {
-    read_state(|s| s.get_stability_pool_canister())
-}
-
-// Add guard cleanup method for developers to resolve stuck operations
-#[candid_method(update)]
-#[update]
-async fn clear_stuck_operations(principal_id: Option<Principal>) -> Result<u64, ProtocolError> {
-    let caller = ic_cdk::caller();
-    
-    // Only developer can clear stuck operations
-    let is_developer = read_state(|s| s.developer_principal == caller);
-    if !is_developer {
-        return Err(ProtocolError::GenericError("Only developer can clear stuck operations".to_string()));
-    }
-    
-    let cleared_count = mutate_state(|s| {
-        use ic_cdk::api::time;
-        let current_time = time();
-        let mut operations_to_remove = Vec::new();
-        let mut count = 0u64;
-        
-        // If specific principal provided, only clear their operations
-        if let Some(target_principal) = principal_id {
-            for op_key in s.operation_guards.iter() {
-                if let Some((op_principal, op_name)) = s.operation_details.get(op_key) {
-                    if *op_principal == target_principal {
-                        operations_to_remove.push(op_key.clone());
-                        log!(INFO, 
-                            "[clear_stuck_operations] Clearing operation '{}' for principal: {}", 
-                            op_name, op_principal.to_string()
-                        );
-                        count += 1;
-                    }
-                }
-            }
-        } else {
-            // Clear all operations older than 2 minutes or marked as failed
-            for op_key in s.operation_guards.iter() {
-                let mut should_remove = false;
-                
-                if let Some(timestamp) = s.operation_guard_timestamps.get(op_key) {
-                    let age_seconds = (current_time - timestamp) / 1_000_000_000;
-                    if age_seconds > 120 { // 2 minutes
-                        should_remove = true;
-                    }
-                }
-                
-                // Commented out to avoid import issues - not needed for basic functionality
-                // if let Some(state) = s.operation_states.get(op_key) {
-                //     if *state == crate::guard::OperationState::Failed {
-                //         should_remove = true;
-                //     }
-                // }
-                
-                if should_remove {
-                    operations_to_remove.push(op_key.clone());
-                    if let Some((op_principal, op_name)) = s.operation_details.get(op_key) {
-                        log!(INFO, 
-                            "[clear_stuck_operations] Clearing stale operation '{}' for principal: {}", 
-                            op_name, op_principal.to_string()
-                        );
-                    }
-                    count += 1;
-                }
-            }
-        }
-        
-        // Remove the identified operations
-        for op_key in operations_to_remove {
-            s.operation_guards.remove(&op_key);
-            s.operation_guard_timestamps.remove(&op_key);
-            s.operation_states.remove(&op_key);
-            s.operation_details.remove(&op_key);
-        }
-        
-        count
-    });
-    
-    log!(INFO, "[clear_stuck_operations] Cleared {} stuck operations", cleared_count);
-    Ok(cleared_count)
 }
 
 // Checks the real candid interface against the one declared in the did file

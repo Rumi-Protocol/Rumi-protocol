@@ -4,7 +4,6 @@
   import { protocolService } from '$lib/services/protocol';
   import { formatNumber } from '$lib/utils/format';
   import ProtocolStats from '$lib/components/dashboard/ProtocolStats.svelte';
-  import StabilityPoolCard from '$lib/components/stability/StabilityPoolCard.svelte';
   import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
   import type { CandidVault } from '$lib/services/types';
@@ -19,18 +18,9 @@
   let liquidationSuccess = "";
   let processingVaultId: number | null = null;
   let isApprovingAllowance = false;
-  let showPartialLiquidationModal = false;
-  let selectedVault: CandidVault | null = null;
-  let partialAmount = 0;
-  let isPartialLiquidation = false;
+  let partialLiquidationAmounts: { [vaultId: number]: number } = {};
   
   $: isConnected = $wallet.isConnected;
-  
-  // Computed values for partial liquidation
-  $: totalDebt = selectedVault ? Number(selectedVault.borrowed_icusd_amount) / 100_000_000 : 0;
-  $: maxPartial = totalDebt * 0.5;
-  $: estimatedIcpReceived = partialAmount / icpPrice * 1.1;
-  $: estimatedProfit = (estimatedIcpReceived * icpPrice) - partialAmount;
   
   // Setup animated price display
   let animatedPrice = tweened(0, {
@@ -168,77 +158,7 @@
     }
   }
   
-  // Function to open partial liquidation modal
-  function openPartialLiquidationModal(vault: CandidVault) {
-    selectedVault = vault;
-    const maxDebt = Number(vault.borrowed_icusd_amount) / 100_000_000;
-    partialAmount = Math.min(maxDebt * 0.5, maxDebt); // Default to 50% or max debt
-    showPartialLiquidationModal = true;
-  }
-
-  // Function to perform partial liquidation
-  async function performPartialLiquidation() {
-    if (!selectedVault || !isConnected || partialAmount <= 0) {
-      return;
-    }
-    
-    liquidationError = "";
-    liquidationSuccess = "";
-    processingVaultId = selectedVault.vault_id;
-    isPartialLiquidation = true;
-    showPartialLiquidationModal = false;
-    
-    try {
-      // Check if user has sufficient icUSD balance
-      const icusdBalance = await walletOperations.getIcusdBalance();
-      
-      if (icusdBalance < partialAmount) {
-        liquidationError = `Insufficient icUSD balance. You need ${formatNumber(partialAmount)} icUSD but have ${formatNumber(icusdBalance)} icUSD.`;
-        processingVaultId = null;
-        isPartialLiquidation = false;
-        return;
-      }
-      
-      // Refresh vaults data to ensure we have the latest state
-      await loadLiquidatableVaults();
-      
-      // Re-check that the vault is still available for liquidation
-      const updatedVault = liquidatableVaults.find(v => v.vault_id === selectedVault!.vault_id);
-      if (!updatedVault) {
-        liquidationError = "This vault is no longer available for liquidation";
-        processingVaultId = null;
-        isPartialLiquidation = false;
-        return;
-      }
-      
-      console.log(`Partially liquidating vault #${selectedVault.vault_id} with ${partialAmount} icUSD`);
-      const result = await protocolService.liquidateVaultPartial(selectedVault.vault_id, partialAmount);
-      
-      if (result.success) {
-        const icpReceived = partialAmount / icpPrice * 1.1; // Approximate ICP received with 10% bonus
-        liquidationSuccess = `Successfully partially liquidated vault #${selectedVault.vault_id}. You paid ${formatNumber(partialAmount)} icUSD and received approximately ${formatNumber(icpReceived)} ICP.`;
-        // Refresh the list of liquidatable vaults
-        await loadLiquidatableVaults();
-      } else {
-        liquidationError = result.error || "Partial liquidation failed for unknown reason";
-      }
-    } catch (error) {
-      console.error("Error during partial liquidation:", error);
-      
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('underflow') && errorMessage.includes('numeric.rs')) {
-        liquidationError = "Partial liquidation failed due to a calculation error. The vault may have been modified or its state has changed.";
-      } else {
-        liquidationError = errorMessage;
-      }
-    } finally {
-      processingVaultId = null;
-      isPartialLiquidation = false;
-      selectedVault = null;
-    }
-  }
-
-  // Function to perform complete liquidation
+  // Function to perform liquidation
   async function liquidateVault(vaultId: number) {
   if (!isConnected) {
     liquidationError = "Please connect your wallet to liquidate vaults";
@@ -315,24 +235,93 @@
     processingVaultId = null;
   }
 }
+
+// Partial liquidation function
+async function partialLiquidateVault(vaultId: number, liquidateAmount: number) {
+  if (!isConnected) {
+    liquidationError = "Please connect your wallet to liquidate vaults";
+    return;
+  }
+  
+  if (processingVaultId !== null) {
+    return; // Already processing a liquidation
+  }
+  
+  const vault = liquidatableVaults.find(v => v.vault_id === vaultId);
+  if (!vault) {
+    liquidationError = "Vault not found";
+    return;
+  }
+  
+  liquidationError = "";
+  liquidationSuccess = "";
+  processingVaultId = vaultId;
+  
+  try {
+    // Check if user has sufficient icUSD balance
+    const icusdBalance = await walletOperations.getIcusdBalance();
+    
+    if (icusdBalance < liquidateAmount) {
+      liquidationError = `Insufficient icUSD balance. You need ${formatNumber(liquidateAmount)} icUSD but have ${formatNumber(icusdBalance)} icUSD.`;
+      processingVaultId = null;
+      return;
+    }
+    
+    // Check and set allowance for icUSD with extra buffer
+    const allowanceApproved = await checkAndApproveAllowance(vaultId, liquidateAmount * 1.20);
+    if (!allowanceApproved) {
+      processingVaultId = null;
+      return;
+    }
+    
+    // Get latest vaults data before liquidation to ensure we have fresh data
+    await loadLiquidatableVaults();
+    
+    // Re-check that the vault is still available for liquidation
+    const updatedVault = liquidatableVaults.find(v => v.vault_id === vaultId);
+    if (!updatedVault) {
+      liquidationError = "This vault is no longer available for liquidation";
+      processingVaultId = null;
+      return;
+    }
+    
+    console.log(`Partially liquidating vault #${vaultId} with ${liquidateAmount} icUSD`);
+    const result = await protocolService.partialLiquidateVault(vaultId, liquidateAmount);
+    
+    if (result.success) {
+      // Calculate expected ICP received (10% discount)
+      const expectedIcpValue = liquidateAmount / 0.9; // 10% discount
+      const expectedIcpAmount = expectedIcpValue / icpPrice;
+      
+      liquidationSuccess = `Successfully partially liquidated vault #${vaultId}. You paid ${formatNumber(liquidateAmount)} icUSD and received approximately ${formatNumber(expectedIcpAmount)} ICP (10% discount).`;
+      // Refresh the list of liquidatable vaults
+      await loadLiquidatableVaults();
+    } else {
+      liquidationError = result.error || "Partial liquidation failed for unknown reason";
+    }
+  } catch (error) {
+    console.error("Error during partial liquidation:", error);
+    
+    // Check for specific underflow error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('underflow') && errorMessage.includes('numeric.rs')) {
+      liquidationError = "Partial liquidation failed due to a calculation error. The vault may have already been liquidated or its state has changed.";
+    } else {
+      liquidationError = errorMessage;
+    }
+  } finally {
+    processingVaultId = null;
+  }
+}
   
   // Load ICP price
   async function refreshIcpPrice() {
     try {
       isPriceLoading = true;
       const price = await protocolService.getICPPrice();
-      if (price > 0) {
-        icpPrice = price;
-      } else {
-        // If price is 0 or invalid, use mock price
-        console.log('Invalid price received, using mock ICP price for local testing');
-        icpPrice = 10.0;
-      }
+      icpPrice = price;
     } catch (error) {
       console.error("Error fetching ICP price:", error);
-      // For local testing, always set a mock price when fetching fails
-      console.log('Price fetch failed, using mock ICP price for local testing');
-      icpPrice = 10.0; // $10.00 mock price for testing
     } finally {
       isPriceLoading = false;
     }
@@ -366,19 +355,14 @@
   <section class="mb-8">
     <div class="text-center mb-8">
       <h1 class="text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-purple-600">
-        Liquidations
+        Market Liquidations
       </h1>
       <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-        Earn liquidation profits through automated community pool participation or individual vault liquidations
+        Earn profits by liquidating undercollateralized vaults. Pay the debt in icUSD, receive the collateral with a 10% discount.
       </p>
     </div>
 
     <ProtocolStats />
-  </section>
-
-  <!-- Stability Pool Section -->
-  <section class="mb-12">
-    <StabilityPoolCard />
   </section>
   
   <!-- Current ICP Price Display -->
@@ -417,14 +401,11 @@
     {/if}
   </div>
 
-  <!-- Manual Liquidations Section -->
+  <!-- Liquidatable Vaults Section -->
   <section class="mb-12">
     <div class="glass-card">
       <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 class="text-2xl font-semibold">Manual Liquidations</h2>
-          <p class="text-gray-400 text-sm mt-1">Liquidate individual vaults directly for immediate profit</p>
-        </div>
+        <h2 class="text-2xl font-semibold">Liquidatable Vaults</h2>
         <button 
           class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-500 transition-colors"
           on:click={loadLiquidatableVaults}
@@ -474,7 +455,7 @@
                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Collateral (ICP)</th>
                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Coll. Ratio</th>
                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Profit Potential</th>
-                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">Actions</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -495,18 +476,28 @@
                     </div>
                   </td>
                   <td class="px-4 py-4 text-right">
-                    <div class="flex items-center gap-2 justify-end">
-                      <!-- Partial Liquidation Button -->
-                      <button 
-                        class="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                        on:click={() => openPartialLiquidationModal(vault)}
-                        disabled={processingVaultId !== null || !isConnected || isApprovingAllowance}
-                        title="Liquidate part of the vault debt"
-                      >
-                        Partial
-                      </button>
+                    <div class="flex flex-col gap-2 items-end">
+                      <!-- Partial Liquidation Controls -->
+                      <div class="flex gap-2 items-center">
+                        <input 
+                          type="number" 
+                          bind:value={partialLiquidationAmounts[vault.vault_id]}
+                          min="0" 
+                          max={vault.borrowed_icusd_amount / 100_000_000}
+                          step="0.01"
+                          placeholder="icUSD amount"
+                          class="w-24 px-2 py-1 bg-gray-800 text-white text-sm rounded border border-gray-700"
+                        />
+                        <button 
+                          class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          on:click={() => partialLiquidationAmounts[vault.vault_id] && partialLiquidateVault(vault.vault_id, partialLiquidationAmounts[vault.vault_id])}
+                          disabled={processingVaultId !== null || !isConnected || isApprovingAllowance || !partialLiquidationAmounts[vault.vault_id] || partialLiquidationAmounts[vault.vault_id] <= 0}
+                        >
+                          Partial
+                        </button>
+                      </div>
                       
-                      <!-- Complete Liquidation Button -->
+                      <!-- Full Liquidation Button -->
                       <button 
                         class="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         on:click={() => liquidateVault(vault.vault_id)}
@@ -516,21 +507,16 @@
                           {#if isApprovingAllowance}
                             <span class="flex items-center gap-2">
                               <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              Approving...
-                            </span>
-                          {:else if isPartialLiquidation}
-                            <span class="flex items-center gap-2">
-                              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              Partial...
+                              Approving icUSD...
                             </span>
                           {:else}
                             <span class="flex items-center gap-2">
                               <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              Complete...
+                              Liquidating...
                             </span>
                           {/if}
                         {:else}
-                          Complete
+                          Full Liquidate
                         {/if}
                       </button>
                     </div>
@@ -557,90 +543,22 @@
         </div>
 
         <div class="glass-card h-full">
-          <div class="text-pink-400 text-3xl font-bold mb-2">2</div>  
-          <h3 class="text-lg font-medium mb-2">Choose Liquidation Type</h3>
-          <p class="text-gray-300"><strong>Complete:</strong> Pay the full debt and close the vault.</p>
-          <p class="text-gray-300 mt-2"><strong>Partial:</strong> Pay part of the debt (up to 50%) and keep the vault open.</p>
+          <div class="text-pink-400 text-3xl font-bold mb-2">2</div>
+          <h3 class="text-lg font-medium mb-2">Pay the Debt</h3>
+          <p class="text-gray-300">Pay the debt amount in icUSD to liquidate the vault. You can liquidate partially (any amount up to the full debt) or fully liquidate the entire vault.</p>
         </div>
 
         <div class="glass-card h-full">
           <div class="text-pink-400 text-3xl font-bold mb-2">3</div>
           <h3 class="text-lg font-medium mb-2">Receive Collateral</h3>
-          <p class="text-gray-300">Get ICP collateral with a 10% bonus. Complete liquidations give you all collateral, partial liquidations give proportional amounts.</p>
+          <p class="text-gray-300">Get the vault's ICP collateral with a 10% discount compared to the current market price, generating profit.</p>
         </div>
       </div>
     </div>
   </section>
 </div>
 
-<!-- Partial Liquidation Modal -->
-{#if showPartialLiquidationModal && selectedVault}
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" on:click={() => showPartialLiquidationModal = false}>
-    <div class="bg-gray-900 p-6 rounded-lg max-w-md w-full mx-4 border border-gray-700" on:click|stopPropagation>
-      <h3 class="text-xl font-semibold mb-4">Partial Liquidation</h3>
-      <p class="text-gray-300 mb-4">Vault #{selectedVault.vault_id}</p>
-      
-      <div class="mb-4">
-        <p class="text-sm text-gray-400 mb-2">Total Debt: {formatNumber(totalDebt)} icUSD</p>
-        <p class="text-sm text-gray-400 mb-2">Maximum Partial: {formatNumber(maxPartial)} icUSD (50%)</p>
-      </div>
-      
-      <div class="mb-4">
-        <label for="partial-amount" class="block text-sm font-medium mb-2">
-          Amount to Liquidate (icUSD)
-        </label>
-        <input 
-          id="partial-amount"
-          type="number" 
-          bind:value={partialAmount}
-          max={maxPartial}
-          min="0.01"
-          step="0.01"
-          class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:border-purple-500"
-          placeholder="Enter amount"
-        />
-        <div class="flex justify-between mt-1">
-          <button 
-            class="text-xs text-purple-400 hover:text-purple-300"
-            on:click={() => partialAmount = totalDebt * 0.25}
-          >
-            25%
-          </button>
-          <button 
-            class="text-xs text-purple-400 hover:text-purple-300"
-            on:click={() => partialAmount = totalDebt * 0.5}
-          >
-            50%
-          </button>
-        </div>
-      </div>
-      
-      {#if partialAmount > 0 && icpPrice > 0}
-        <div class="mb-4 p-3 bg-gray-800/50 rounded">
-          <p class="text-sm text-gray-300">Estimated Results:</p>
-          <p class="text-sm">• ICP Received: ~{formatNumber(estimatedIcpReceived)} ICP</p>
-          <p class="text-sm">• Profit: ~${formatNumber(estimatedProfit)}</p>
-        </div>
-      {/if}
-      
-      <div class="flex gap-3">
-        <button 
-          class="flex-1 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
-          on:click={() => showPartialLiquidationModal = false}
-        >
-          Cancel
-        </button>
-        <button 
-          class="flex-1 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-500 transition-colors disabled:opacity-50"
-          on:click={performPartialLiquidation}
-          disabled={partialAmount <= 0 || partialAmount > maxPartial}
-        >
-          Liquidate
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}<style>
+<style>
   /* Add glass card styling */
   .glass-card {
     background-color: rgba(31, 41, 55, 0.4);

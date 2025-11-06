@@ -32,11 +32,9 @@ pub enum Event {
     #[serde(rename = "partial_liquidate_vault")]
     PartialLiquidateVault {
         vault_id: u64,
-        liquidated_debt: ICUSD,
-        collateral_seized: ICP,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        liquidator: Option<Principal>,
-        icp_rate: UsdIcp,
+        liquidator_payment: ICUSD,
+        icp_to_liquidator: ICP,
+        liquidator: Principal,
     },
 
     #[serde(rename = "redemption_on_vaults")]
@@ -126,6 +124,12 @@ pub enum Event {
         amount: ICP,
         block_index: Option<u64>,
     },
+
+    #[serde(rename = "dust_forgiven")]
+    DustForgiven {
+        vault_id: u64,
+        amount: ICUSD,
+    },
 }
 
 impl Event {
@@ -151,6 +155,7 @@ impl Event {
             Event::CollateralWithdrawn { vault_id, .. } => vault_id == filter_vault_id,
             Event::VaultWithdrawnAndClosed { vault_id, .. } => vault_id == filter_vault_id,
             Event::WithdrawAndCloseVault { vault_id, .. } => vault_id == filter_vault_id,
+            Event::DustForgiven { vault_id, .. } => vault_id == filter_vault_id,
         }
     }
 }
@@ -196,11 +201,16 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<State, ReplayLo
             } => state.liquidate_vault(vault_id, mode, icp_rate),
             Event::PartialLiquidateVault {
                 vault_id,
-                liquidated_debt,
-                collateral_seized,
+                liquidator_payment,
+                icp_to_liquidator,
                 liquidator: _,
-                icp_rate,
-            } => state.liquidate_vault_partial(vault_id, liquidated_debt, collateral_seized, icp_rate),
+            } => {
+                // Reduce vault debt and collateral
+                if let Some(vault) = state.vault_id_to_vaults.get_mut(&vault_id) {
+                    vault.borrowed_icusd_amount -= liquidator_payment;
+                    vault.icp_margin_amount -= icp_to_liquidator;
+                }
+            },
             Event::RedistributeVault { vault_id } => state.redistribute_vault(vault_id),
             Event::BorrowFromVault {
                 vault_id,
@@ -279,6 +289,12 @@ pub fn replay(mut events: impl Iterator<Item = Event>) -> Result<State, ReplayLo
             } => {
                 // Close the vault during replay
                 state.close_vault(vault_id);
+            },
+            Event::DustForgiven { 
+                vault_id: _,
+                amount: _,
+            } => {
+                // Dust forgiveness doesn't need state changes during replay
             },
         }
     }

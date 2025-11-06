@@ -229,6 +229,73 @@
       isApproving = false;
     }
   }
+
+  // Handle partial repayment
+  async function handlePartialRepay() {
+    if (!currentVault) return;
+    if (repayAmount <= 0) {
+      errorMessage = "Please enter a valid amount";
+      return;
+    }
+    
+    if (repayAmount > currentVault.borrowedIcusd) {
+      errorMessage = `You can only repay up to ${currentVault.borrowedIcusd} icUSD`;
+      return;
+    }
+    
+    try {
+      isRepaying = true;
+      isApproving = false;
+      errorMessage = '';
+      successMessage = '';
+      
+      // Check approval first
+      const amountE8s = BigInt(Math.floor(repayAmount * E8S));
+      const spenderCanisterId = CONFIG.currentCanisterId;
+      currentAllowance = Number(await protocolService.checkIcusdAllowance(spenderCanisterId));
+      
+      // If approval is needed
+      if (currentAllowance < Number(amountE8s)) {
+        isApproving = true;
+        
+        // Request approval
+        const approvalResult = await protocolService.approveIcusdTransfer(
+          amountE8s, 
+          spenderCanisterId
+        );
+        
+        if (!approvalResult.success) {
+          errorMessage = approvalResult.error || "Failed to approve icUSD transfer";
+          isRepaying = false;
+          isApproving = false;
+          return;
+        }
+        
+        isApproving = false;
+      }
+      
+      // Call protocol service for partial repayment
+      const result = await protocolService.partialRepayToVault(currentVault.vaultId, repayAmount);
+      
+      if (result.success) {
+        successMessage = `Successfully made partial repayment of ${repayAmount} icUSD`;
+        
+        // Reset input
+        repayAmount = 0;
+        
+        // Explicitly refresh this vault to ensure UI is updated
+        await vaultStore.refreshVault(currentVault.vaultId);
+      } else {
+        errorMessage = result.error || "Failed to make partial repayment";
+      }
+    } catch (err) {
+      console.error('Error making partial repayment:', err);
+      errorMessage = err instanceof Error ? err.message : "Unknown error";
+    } finally {
+      isRepaying = false;
+      isApproving = false;
+    }
+  }
   
   // Update handleWithdrawAndCloseVault to use currentVault
   async function handleWithdrawAndCloseVault() {
@@ -477,19 +544,34 @@
           {/if}
         </p>
       </div>
-      <button 
-        on:click={handleRepay} 
-        disabled={isRepaying || isApproving || repayAmount <= 0 || repayAmount > currentVault.borrowedIcusd || currentVault.borrowedIcusd === 0}
-        class="w-full bg-yellow-600 hover:bg-yellow-500 text-white py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {#if isApproving}
-          Approving...
-        {:else if isRepaying}
-          Processing...
-        {:else}
-          Repay icUSD
-        {/if}
-      </button>
+      <div class="flex gap-2">
+        <button 
+          on:click={handlePartialRepay} 
+          disabled={isRepaying || isApproving || repayAmount <= 0 || repayAmount > currentVault.borrowedIcusd || currentVault.borrowedIcusd === 0}
+          class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        >
+          {#if isApproving}
+            Approving...
+          {:else if isRepaying}
+            Processing...
+          {:else}
+            Partial Repay
+          {/if}
+        </button>
+        <button 
+          on:click={handleRepay} 
+          disabled={isRepaying || isApproving || repayAmount <= 0 || repayAmount > currentVault.borrowedIcusd || currentVault.borrowedIcusd === 0}
+          class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        >
+          {#if isApproving}
+            Approving...
+          {:else if isRepaying}
+            Processing...
+          {:else}
+            Full Repay
+          {/if}
+        </button>
+      </div>
     </div>
   </div>
   

@@ -47,7 +47,7 @@ pub const E8S: u64 = 100_000_000;
 
 pub const MIN_LIQUIDITY_AMOUNT: ICUSD = ICUSD::new(1_000_000_000);
 pub const MIN_ICP_AMOUNT: ICP = ICP::new(100_000);  // Instead of MIN_CKBTC_AMOUNT
-pub const MIN_ICUSD_AMOUNT: ICUSD = ICUSD::new(10_000_000); // 0.10 icUSD (10 cents)
+pub const MIN_ICUSD_AMOUNT: ICUSD = ICUSD::new(10_000_000); // 0.1 icUSD (10 cents)
 
 // Update collateral ratios per whitepaper
 pub const RECOVERY_COLLATERAL_RATIO: Ratio = Ratio::new(dec!(1.5));  // 150%

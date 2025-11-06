@@ -23,7 +23,7 @@
       // Get protocol status with real price from logs
       const status = await protocolService.getProtocolStatus();
       console.log('Protocol status with live price:', status);
-      
+
       protocolStatus = {
         mode: status.mode || 'GeneralAvailability',
         totalIcpMargin: Number(status.totalIcpMargin || 0),
@@ -32,10 +32,27 @@
         lastIcpTimestamp: Number(status.lastIcpTimestamp || 0),
         totalCollateralRatio: Number(status.totalCollateralRatio || 0)
       };
-      
+
+      // For local testing, if no valid price is available, use mock price
+      if (protocolStatus.lastIcpRate === 0) {
+        console.log('No ICP price available, using mock price for local testing');
+        protocolStatus.lastIcpRate = 10.0;
+        protocolStatus.lastIcpTimestamp = Date.now() * 1000000; // Convert to nanoseconds
+      }
+
       updateTimestamp();
     } catch (error) {
       console.error('Error fetching protocol status:', error);
+      // Set default values for local testing
+      protocolStatus = {
+        mode: 'GeneralAvailability',
+        totalIcpMargin: 0,
+        totalIcusdBorrowed: 0,
+        lastIcpRate: 10.0, // Mock price
+        lastIcpTimestamp: Date.now() * 1000000,
+        totalCollateralRatio: 0
+      };
+      updateTimestamp();
     } finally {
       isLoading = false;
     }

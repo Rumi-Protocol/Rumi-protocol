@@ -4,6 +4,7 @@
   import { protocolService } from '$lib/services/protocol';
   import { formatNumber } from '$lib/utils/format';
   import ProtocolStats from '$lib/components/dashboard/ProtocolStats.svelte';
+  import StabilityPoolCard from '$lib/components/stability/StabilityPoolCard.svelte';
   import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
   import type { CandidVault } from '$lib/services/types';
@@ -320,9 +321,18 @@
     try {
       isPriceLoading = true;
       const price = await protocolService.getICPPrice();
-      icpPrice = price;
+      if (price > 0) {
+        icpPrice = price;
+      } else {
+        // If price is 0 or invalid, use mock price
+        console.log('Invalid price received, using mock ICP price for local testing');
+        icpPrice = 10.0;
+      }
     } catch (error) {
       console.error("Error fetching ICP price:", error);
+      // For local testing, always set a mock price when fetching fails
+      console.log('Price fetch failed, using mock ICP price for local testing');
+      icpPrice = 10.0; // $10.00 mock price for testing
     } finally {
       isPriceLoading = false;
     }
@@ -356,14 +366,19 @@
   <section class="mb-8">
     <div class="text-center mb-8">
       <h1 class="text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-purple-600">
-        Market Liquidations
+        Liquidations
       </h1>
       <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-        Earn profits by liquidating undercollateralized vaults. Pay the debt in icUSD, receive the collateral with a 10% discount.
+        Earn liquidation profits through automated community pool participation or individual vault liquidations
       </p>
     </div>
 
     <ProtocolStats />
+  </section>
+
+  <!-- Stability Pool Section -->
+  <section class="mb-12">
+    <StabilityPoolCard />
   </section>
   
   <!-- Current ICP Price Display -->
@@ -402,11 +417,14 @@
     {/if}
   </div>
 
-  <!-- Liquidatable Vaults Section -->
+  <!-- Manual Liquidations Section -->
   <section class="mb-12">
     <div class="glass-card">
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold">Liquidatable Vaults</h2>
+        <div>
+          <h2 class="text-2xl font-semibold">Manual Liquidations</h2>
+          <p class="text-gray-400 text-sm mt-1">Liquidate individual vaults directly for immediate profit</p>
+        </div>
         <button 
           class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-500 transition-colors"
           on:click={loadLiquidatableVaults}

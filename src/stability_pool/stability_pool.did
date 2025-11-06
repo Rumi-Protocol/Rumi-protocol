@@ -1,0 +1,125 @@
+type StabilityPoolInitArgs = record {
+  protocol_canister_id : principal;
+  icusd_ledger_id : principal;
+  icp_ledger_id : principal;
+  min_deposit_amount : nat64;
+  liquidation_discount : text;
+};
+
+type DepositInfo = record {
+  icusd_amount : nat64;
+  share_percentage : text;
+  pending_icp_gains : nat64;
+  total_claimed_gains : nat64;
+  deposit_timestamp : nat64;
+};
+
+type PoolLiquidationRecord = record {
+  vault_id : nat64;
+  timestamp : nat64;
+  icusd_used : nat64;
+  icp_gained : nat64;
+  liquidation_discount : text;
+  depositors_count : nat64;
+};
+
+type StabilityPoolStatus = record {
+  total_icusd_deposits : nat64;
+  total_depositors : nat64;
+  total_liquidations_executed : nat64;
+  total_icp_gains_distributed : nat64;
+  pool_utilization_ratio : text;
+  average_deposit_size : nat64;
+  current_apr_estimate : text;
+};
+
+type UserStabilityPosition = record {
+  icusd_deposit : nat64;
+  share_percentage : text;
+  pending_icp_gains : nat64;
+  total_claimed_gains : nat64;
+  deposit_timestamp : nat64;
+  estimated_daily_earnings : nat64;
+};
+
+type LiquidatableVault = record {
+  vault_id : nat64;
+  owner : principal;
+  collateral_amount : nat64;
+  debt_amount : nat64;
+  collateral_ratio : text;
+  liquidation_discount : nat64;
+  priority_score : nat64;
+};
+
+type LiquidationResult = record {
+  vault_id : nat64;
+  icusd_used : nat64;
+  icp_gained : nat64;
+  success : bool;
+  error_message : opt text;
+  block_index : opt nat64;
+};
+
+type PoolConfiguration = record {
+  min_deposit_amount : nat64;
+  max_single_liquidation : nat64;
+  liquidation_scan_interval : nat64;
+  max_liquidations_per_batch : nat64;
+  emergency_pause : bool;
+  authorized_admins : vec principal;
+};
+
+type PoolAnalytics = record {
+  total_volume_processed : nat64;
+  average_liquidation_size : nat64;
+  success_rate : text;
+  total_profit_distributed : nat64;
+  active_depositors : nat64;
+  pool_age_days : nat64;
+};
+
+type StabilityPoolError = variant {
+  InsufficientDeposit : record { required : nat64; available : nat64 };
+  AmountTooLow : record { minimum_amount : nat64 };
+  NoDepositorFound;
+  InsufficientPoolBalance;
+  Unauthorized;
+  ProtocolUnavailable : record { retry_after : nat64 };
+  LedgerTransferFailed : record { reason : text };
+  InterCanisterCallFailed : record { target : text; method : text };
+  NoLiquidatableVaults;
+  LiquidationExecutionFailed : record { vault_id : nat64; reason : text };
+  VaultNotLiquidatable : record { vault_id : nat64; current_ratio : text };
+  StateCorruption : record { details : text };
+  SystemBusy;
+  TemporarilyUnavailable : text;
+};
+
+service : (StabilityPoolInitArgs) -> {
+  // Main user operations
+  deposit_icusd : (nat64) -> (variant { Ok : null; Err : StabilityPoolError });
+  withdraw_icusd : (nat64) -> (variant { Ok : null; Err : StabilityPoolError });
+  claim_collateral_gains : () -> (variant { Ok : nat64; Err : StabilityPoolError });
+
+  // Liquidation operations
+  execute_liquidation : (nat64) -> (variant { Ok : LiquidationResult; Err : StabilityPoolError });
+  scan_and_liquidate : () -> (variant { Ok : vec LiquidationResult; Err : StabilityPoolError });
+
+  // Query functions
+  get_pool_status : () -> (StabilityPoolStatus) query;
+  get_user_position : (opt principal) -> (opt UserStabilityPosition) query;
+  get_liquidation_history : (opt nat64) -> (vec PoolLiquidationRecord) query;
+  get_liquidatable_vaults : () -> (variant { Ok : vec LiquidatableVault; Err : StabilityPoolError }) query;
+  check_pool_capacity : (nat64) -> (bool) query;
+  get_pool_analytics : () -> (PoolAnalytics) query;
+
+  // Admin functions
+  get_pool_configuration : () -> (variant { Ok : PoolConfiguration; Err : StabilityPoolError }) query;
+  update_pool_configuration : (PoolConfiguration) -> (variant { Ok : null; Err : StabilityPoolError });
+  emergency_pause : () -> (variant { Ok : null; Err : StabilityPoolError });
+  resume_operations : () -> (variant { Ok : null; Err : StabilityPoolError });
+
+  // Debug/validation functions
+  validate_pool_state : () -> (variant { Ok : text; Err : text }) query;
+}

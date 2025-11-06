@@ -113,6 +113,27 @@ pub struct LiquidityStatus {
     pub total_available_returns: u64,
 }
 
+#[derive(CandidType, Deserialize, Debug)]
+pub struct StabilityPoolProtocolInfo {
+    pub current_icp_rate: f64,
+    pub minimum_collateral_ratio: f64,
+    pub mode: String,
+    pub total_debt: u64,
+    pub total_collateral: u64,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+pub struct VaultLiquidationInfo {
+    pub vault_id: u64,
+    pub owner: Principal,
+    pub borrowed_icusd: u64,
+    pub icp_collateral: u64,
+    pub current_collateral_ratio: f64,
+    pub minimum_collateral_ratio: f64,
+    pub is_liquidatable: bool,
+    pub current_icp_rate: f64,
+}
+
 #[derive(CandidType, Debug, Clone, Deserialize)]
 pub enum ProtocolError {
     TransferFromError(TransferFromError, u64),
